@@ -1,0 +1,11 @@
+# Real Wi-Fi credentials -- never commit this. See src/secrets.example.py.
+src/secrets.py
+
+# Python / MicroPython
+__pycache__/
+*.pyc
+.mpy_cache/
+
+# Editor / OS cruft
+.DS_Store
+*.swp

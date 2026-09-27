@@ -1,0 +1,19 @@
+InkyClock - build log / todo
+Update this file with a timestamp whenever a chunk of work finishes.
+
+[2026-09-26 23:09] Starting: src/ layout, git init, alarm clock implementation.
+
+Plan:
+[ ] move pins.py -> src/pins.py, add src/config.py (non-secret settings)
+[ ] src/secrets.example.py (tracked template) + src/secrets.py (gitignored, real values)
+[ ] src/wifi.py       - wifi connect + 4h time-sync scheduler (T0-aligned, 5 retries @ 1min)
+[ ] src/buzzer.py     - passive buzzer PWM interface + alarm-tune placeholder (buzzer not wired yet)
+[ ] src/display.py    - Inky Pack interface: big centered clock, date sub-line, alarm-edit view, ring-flash border
+[ ] src/alarm.py      - alarm state machine: default 07:00, long-press-B edit mode, digit blink, ring/dismiss
+[ ] src/main.py       - wires it all together, button polling (short/long press), main loop
+[ ] .gitignore (must exclude src/secrets.py BEFORE first `git add`)
+[ ] git init + first commit
+[ ] idea.txt - future hobbyist additions (temp sensor -> A/C control, time-of-day blinds control, others)
+[ ] update docs/ links now that pins.py lives at src/pins.py
+[ ] README.md - concise, dev-facing, "see file:function/var" pointers
+[ ] final review pass + todo.txt closeout

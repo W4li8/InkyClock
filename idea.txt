@@ -1,0 +1,13 @@
+InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
+
+- Temperature sensor (e.g. a cheap I2C one like a BME280/SHT31) to auto-control
+  the A/C, and auto-control blinds based on time of day. Would need a relay/
+  IR-blaster or similar actuator for the A/C side and a motor or existing
+  smart-blinds API for the blinds side -- bigger scope than the clock itself,
+  parking here for later.
+
+- Battery-backed external RTC module (DS3231 / PCF8523, I2C, coin-cell).
+  The Pico has no battery-backed RTC (see conversation) -- it resets on
+  every power loss and only gets corrected again once wifi.TimeSync
+  succeeds. An external RTC would survive outages and give a sane baseline
+  immediately at boot even before/without a successful Wi-Fi sync.
