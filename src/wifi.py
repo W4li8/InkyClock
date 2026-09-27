@@ -35,6 +35,12 @@ _WEEKDAY_FROM_NAME = {
 def connect(timeout_s=None):
     """Join the configured Wi-Fi network. Returns the WLAN object on success, None on timeout."""
     timeout_s = config.WIFI_CONNECT_TIMEOUT_S if timeout_s is None else timeout_s
+    # Must be set before the interface activates -- it's what gets sent in
+    # the DHCP request, so the router/network can show "inkypico" instead
+    # of the MicroPython default ("Pico2W"). Confirmed live: network.
+    # hostname() is a simple global getter/setter, harmless to call every
+    # connect().
+    network.hostname(config.WIFI_HOSTNAME)
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     if not wlan.isconnected():

@@ -22,6 +22,7 @@ SYNC_RETRY_COUNT = 5             # total attempts per slot (not 5 retries *after
 SYNC_RETRY_INTERVAL_S = 60       # gap between attempts within one slot
 
 WIFI_CONNECT_TIMEOUT_S = 15
+WIFI_HOSTNAME = "inkypico"   # advertised via network.hostname(), see wifi.connect()
 
 # Goal: don't miss the alarm by more than ~10 minutes if power comes back
 # but Wi-Fi/the router is still down (routers often take longer to reboot

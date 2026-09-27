@@ -16,7 +16,7 @@ mpremote connect <port> run test/test_<name>.py
 | `test_alarm.py` | Digit editing, wraparound, enable/disable, ring-check gating | Automatic |
 | `test_main.py` | `main.py` imports cleanly, its pieces exist (does **not** run the real clock loop) | Automatic |
 | `test_persist.py` | Flash-backed state file: missing/round-trip/corrupt-file handling | Automatic |
-| `test_wifi.py` | Wi-Fi joins, time-sync API call succeeds, radio powers back down, checkpoint/restore round-trip | Automatic |
+| `test_wifi.py` | Wi-Fi joins, hostname advertised correctly, time-sync API call succeeds, radio powers back down, checkpoint/restore round-trip | Automatic |
 | `test_buzzer.py` | Piezo buzzer on `pins.BUZZER` | **Human**: listen for it |
 | `test_display.py` | E-ink display draws each view correctly | **Human**: look at the screen |
 

@@ -1,5 +1,21 @@
 InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
 
+- Advertise this device's route over Tailscale from veteranserver, letting
+  the server do the heavy lifting (time sync, API calls, maybe even the
+  alarm-state logic) while the Pico is reduced to a thin/idle display+input
+  slave. Still to be evaluated how far to take this -- it cuts directly
+  against the current design philosophy of the alarm being deliberately
+  "dumb"/self-contained: everything built this session (Wi-Fi-off-between-
+  syncs, the flash-persisted time checkpoint, the whole boot-sync-before-
+  anything-else flow) exists specifically so this clock keeps working when
+  infra it doesn't own is unavailable. Routing its core function through a
+  specific home server over Tailscale would trade that resilience for
+  whatever the server offloads -- worth being deliberate about which parts
+  (if any) actually benefit from moving server-side vs. which parts the
+  "dumb and self-contained" property is precisely the point of keeping
+  on-device. inkypico's advertised hostname (see wifi.connect(),
+  config.WIFI_HOSTNAME) would be the natural thing to route to either way.
+
 - Temperature sensor (e.g. a cheap I2C one like a BME280/SHT31) to auto-control
   the A/C, and auto-control blinds based on time of day. Would need a relay/
   IR-blaster or similar actuator for the A/C side and a motor or existing

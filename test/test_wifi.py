@@ -12,7 +12,9 @@ Unlike the buzzer/display tests, this one is self-checking: PASS/FAIL lines
 below reflect real success/failure, no eyes/ears needed.
 """
 import uos
+import network
 
+import config
 import persist
 import wifi
 
@@ -24,6 +26,11 @@ if wlan is None:
     print("FAIL: could not join Wi-Fi -- check src/secrets.py credentials")
 else:
     print("PASS: connected, ip =", wlan.ifconfig()[0])
+    got_hostname = network.hostname()
+    if got_hostname == config.WIFI_HOSTNAME:
+        print(f"PASS: hostname advertised as {got_hostname!r}")
+    else:
+        print(f"FAIL: hostname is {got_hostname!r}, expected {config.WIFI_HOSTNAME!r}")
 
     ts = wifi.TimeSync()
     print("Fetching from", __import__("config").TIME_API_URL)

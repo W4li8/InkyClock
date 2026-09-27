@@ -418,3 +418,22 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
     including the round-trip (checkpointed 2026-09-27 12:47:40, scrambled
     to 2000-01-01, restore_from_flash() correctly set it back).
   - README.md, test/README.md, idea.txt (reboot-persistence entry) updated.
+
+[2026-09-27 14:13] Wi-Fi hostname + Tailscale/server idea logged.
+
+  - config.py: WIFI_HOSTNAME = "inkypico". wifi.connect() calls
+    network.hostname(config.WIFI_HOSTNAME) before wlan.active(True) (must
+    be set before the interface activates so it's included in the DHCP
+    request). Confirmed live: network.hostname() reads back "inkypico"
+    after connecting, and the connection itself is unaffected. Can't verify
+    from here whether the router's own admin UI displays it (no access to
+    that), only that the device-side mechanism is applied correctly.
+  - test/test_wifi.py: new PASS/FAIL check that network.hostname() ==
+    config.WIFI_HOSTNAME after connecting. Ran live, passes, alongside all
+    the existing test_wifi checks (still green).
+  - idea.txt: logged the Tailscale/veteranserver architecture idea (server
+    does the heavy lifting, Pico becomes a thin/idle slave) exactly as
+    described, flagged as still-to-be-evaluated -- noted the real tension
+    with this session's whole "dumb/self-contained, resilient to infra
+    being down" design direction (Wi-Fi-off-between-syncs, the flash
+    checkpoint, boot-sync-first flow) for whoever picks this up later.
