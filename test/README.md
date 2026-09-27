@@ -15,16 +15,17 @@ mpremote connect <port> run test/test_<name>.py
 | `test_secrets.py` | `secrets.py` exists and isn't still the placeholder | Automatic |
 | `test_alarm.py` | Digit editing, wraparound, enable/disable, ring-check gating | Automatic |
 | `test_main.py` | `main.py` imports cleanly, its pieces exist (does **not** run the real clock loop) | Automatic |
-| `test_wifi.py` | Wi-Fi joins, time-sync API call succeeds, radio powers back down | Automatic |
+| `test_persist.py` | Flash-backed state file: missing/round-trip/corrupt-file handling | Automatic |
+| `test_wifi.py` | Wi-Fi joins, time-sync API call succeeds, radio powers back down, checkpoint/restore round-trip | Automatic |
 | `test_buzzer.py` | Piezo buzzer on `pins.BUZZER` | **Human**: listen for it |
 | `test_display.py` | E-ink display draws each view correctly | **Human**: look at the screen |
 
-The first five need no hardware beyond the Pico itself running MicroPython — they're regression tests for logic bugs (the kind of off-by-one or typo that's easy to introduce and easy to miss just reading a diff). `test_wifi.py` needs Wi-Fi in range and a valid `secrets.py`. `test_buzzer.py` and `test_display.py` need the actual peripherals wired/attached and a person watching/listening — there's no way to check sound or pixels from software, so those two print step-by-step instructions instead of PASS/FAIL.
+The first six need no hardware beyond the Pico itself running MicroPython — they're regression tests for logic bugs (the kind of off-by-one or typo that's easy to introduce and easy to miss just reading a diff). `test_wifi.py` needs Wi-Fi in range and a valid `secrets.py`. `test_buzzer.py` and `test_display.py` need the actual peripherals wired/attached and a person watching/listening — there's no way to check sound or pixels from software, so those two print step-by-step instructions instead of PASS/FAIL.
 
 Run all the automatic ones in one go:
 
 ```bash
-for t in pins config secrets alarm main wifi; do
+for t in pins config secrets alarm main persist wifi; do
     echo "--- $t ---"
     mpremote connect <port> run test/test_$t.py
 done

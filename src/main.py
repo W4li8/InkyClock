@@ -176,6 +176,13 @@ def main():
 
     print("[main] InkyClock booting")
 
+    # Restore the last flash-checkpointed time BEFORE attempting a fresh
+    # sync, so even a total "Wi-Fi/router also down" boot starts from a
+    # recent estimate instead of the hardcoded power-on default -- see
+    # wifi.TimeSync's docstring for exactly what this does and doesn't
+    # guarantee (bounds a brief outage, not an extended one).
+    time_sync.restore_from_flash()
+
     # Boot-time sync: block once so the clock is correct right away, instead
     # of waiting for the next scheduled 4h slot (see wifi.TimeSync docstring).
     display.show_message("Syncing time...")
@@ -221,6 +228,10 @@ def main():
         # Don't let a resync attempt's HTTP call delay the ring itself.
         if alarm.mode != MODE_RINGING:
             time_sync.poll()
+
+        # Flash-only, no network -- safe to call even during MODE_RINGING,
+        # unlike poll() above. See wifi.TimeSync.maybe_checkpoint.
+        time_sync.maybe_checkpoint()
 
         year, month, day, weekday, hour, minute, second, _sub = rtc.datetime()
 

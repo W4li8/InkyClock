@@ -18,6 +18,7 @@ import machine
 import network
 
 import config
+import persist
 from secrets import WIFI_SSID, WIFI_PASSWORD
 
 try:
@@ -87,6 +88,22 @@ class TimeSync:
     Low-power note: the radio is powered off (disconnect()) as soon as a
     slot's attempts conclude, one way or the other (_conclude()), and only
     powered back on for the next slot -- see radio_active().
+
+    Flash-persisted fallback (persist.py): every successful sync, and
+    periodically (config.PERSIST_CHECKPOINT_S) during normal operation via
+    maybe_checkpoint(), the current RTC value is written to flash.
+    restore_from_flash() -- called once at boot before sync_blocking() --
+    restores that value instead of the hardcoded power-on default, so a
+    reboot with Wi-Fi/the router still down (routers often reboot slower
+    than the Pico does) doesn't miss the alarm outright.
+
+    The goal this is actually sized for: no more than ~config.
+    PERSIST_CHECKPOINT_S (10 min) of missed-alarm risk for a BRIEF power
+    outage. It does not track elapsed time while genuinely powered off --
+    a longer outage adds its own full duration on top, uncorrected. Only a
+    battery-backed RTC or UPS (see idea.txt) actually knows elapsed time
+    through a real outage; this is a bound for the "quick blip" case, not a
+    general fix for "how long was I unplugged."
     """
 
     def __init__(self):
@@ -95,6 +112,7 @@ class TimeSync:
         self._retrying = False
         self._attempts_used = 0
         self._next_attempt_ticks = None
+        self._last_checkpoint_ticks = None
 
     # -- schedule -----------------------------------------------------------
     def seconds_until_next_slot(self):
@@ -155,7 +173,44 @@ class TimeSync:
         y, mo, d, wd, hh, mm, ss = result
         self.rtc.datetime((y, mo, d, wd, hh, mm, ss, 0))
         print(f"[wifi] time synced: {y:04}-{mo:02}-{d:02} {hh:02}:{mm:02}:{ss:02}")
+        self._checkpoint()
         return True
+
+    # -- flash-persisted fallback ---------------------------------------------
+    def restore_from_flash(self):
+        """
+        Call once at boot, before sync_blocking(). If a datetime was
+        persisted (_checkpoint()/maybe_checkpoint()) from before this boot,
+        set the RTC to it immediately -- see this class's docstring for why
+        that's a bounded-staleness fallback, not a corrected one. Returns
+        True if a value was found and restored.
+        """
+        state = persist.load()
+        dt = state.get("datetime")
+        if not dt or len(dt) != 7:
+            return False
+        y, mo, d, wd, hh, mm, ss = dt
+        self.rtc.datetime((y, mo, d, wd, hh, mm, ss, 0))
+        print(f"[wifi] restored last-known time from flash: {y:04}-{mo:02}-{d:02} {hh:02}:{mm:02}:{ss:02}")
+        return True
+
+    def _checkpoint(self):
+        y, mo, d, wd, hh, mm, ss, _sub = self.rtc.datetime()
+        persist.save({"datetime": [y, mo, d, wd, hh, mm, ss]})
+        self._last_checkpoint_ticks = time.ticks_ms()
+
+    def maybe_checkpoint(self):
+        """
+        Call every main-loop tick (main.py does, unconditionally -- cheap
+        when not due, and unlike poll() this never involves the network so
+        it's safe to call even during MODE_RINGING). Only actually writes
+        to flash every config.PERSIST_CHECKPOINT_S; see that constant's
+        comment for why this exists on top of the per-sync checkpoint.
+        """
+        if self._last_checkpoint_ticks is not None:
+            if time.ticks_diff(time.ticks_ms(), self._last_checkpoint_ticks) < config.PERSIST_CHECKPOINT_S * 1000:
+                return
+        self._checkpoint()
 
     # -- public API ----------------------------------------------------------
     def _conclude(self, ok):

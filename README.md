@@ -11,6 +11,7 @@ Time-sync API, schedule (T0/interval/retries) | `src/config.py` (`TIME_API_URL`,
 Default alarm time, long-press duration, edit idle-timeout | `src/config.py` (`DEFAULT_ALARM_*`, `ALARM_LONG_PRESS_S`, `ALARM_EDIT_TIMEOUT_S`)
 Any GPIO pin assignment | `src/pins.py`
 How Wi-Fi connects / the actual sync HTTP call | `src/wifi.py` (`connect()`, `TimeSync._fetch_local_datetime()`)
+Flash-persisted time fallback (survives reboot if Wi-Fi's also down) | `src/persist.py`, `src/wifi.py` (`restore_from_flash`, `maybe_checkpoint`, `config.PERSIST_CHECKPOINT_S`)
 Clock/date layout, alarm-edit view, alarm-preview view, ring-flash border | `src/display.py` (`InkyDisplay.show_clock`, `show_alarm_edit`, `show_alarm_preview`, `flash_alarm_border`)
 Alarm digit-edit logic (cycles forever; long-B or idle-timeout exits), ring trigger | `src/alarm.py` (`Alarm.adjust_digit`, `next_digit`, `enter_edit`/`exit_edit`, `edit_idle_expired`, `check_ring`)
 Alarm on/off + press-C time preview | `src/alarm.py` (`Alarm.enabled`, `toggle_enabled`, `start_preview`/`preview_expired`/`end_preview`)

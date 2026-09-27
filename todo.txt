@@ -387,3 +387,34 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
 
   Logger left running for continued observation through at least the next
   scheduled sync slot (13:23).
+
+[2026-09-27 12:48] Flash-persisted time checkpoint, implemented per user
+  request: "don't miss the alarm by more than ~10min if power recovers but
+  Wi-Fi is still down" (routers often reboot slower than the Pico does).
+
+  - New src/persist.py: generic small helper for a flash-backed JSON state
+    file (ujson -- explicit MCU-dedicated module name per user's
+    clarification: Python-3-syntax guidance was about syntax only,
+    MCU-dedicated libraries still take precedence over a generic stdlib
+    alias even when both happen to work). Missing/corrupt file -> {},
+    never raises.
+  - wifi.py TimeSync: _checkpoint() (write current RTC to flash) fires on
+    every successful sync automatically, plus maybe_checkpoint() (called
+    unconditionally every main-loop tick, cheap no-op when not due) writes
+    every config.PERSIST_CHECKPOINT_S (10 min) during normal operation.
+    restore_from_flash() (called once at boot, before sync_blocking())
+    restores the last checkpoint immediately.
+  - Precisely scoped, not oversold: this bounds the gap to ~10 min only for
+    a BRIEF power outage. It cannot track elapsed time while genuinely
+    powered off, so a longer outage adds its own full duration on top,
+    uncorrected -- only a battery-backed RTC or UPS (idea.txt) actually
+    knows elapsed time through a real outage. Comments/docstrings in
+    config.py and wifi.py state this precisely after the user's
+    clarification of the actual goal.
+  - test/test_persist.py (new) + test/test_wifi.py extended with a
+    checkpoint/restore round-trip (scrambles the RTC, restores it, checks
+    it matches) -- both back up/restore any real state.json first so
+    testing doesn't clobber real persisted state. All tests pass live,
+    including the round-trip (checkpointed 2026-09-27 12:47:40, scrambled
+    to 2000-01-01, restore_from_flash() correctly set it back).
+  - README.md, test/README.md, idea.txt (reboot-persistence entry) updated.

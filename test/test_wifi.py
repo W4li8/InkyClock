@@ -11,6 +11,9 @@ indirectly via wifi.py) -- copy it there first if you haven't:
 Unlike the buzzer/display tests, this one is self-checking: PASS/FAIL lines
 below reflect real success/failure, no eyes/ears needed.
 """
+import uos
+
+import persist
 import wifi
 
 print("=== test_wifi ===")
@@ -34,3 +37,36 @@ else:
     wifi.disconnect()
     print("Radio powered back down (wifi.radio_active() should now be False).")
     print("radio_active() ->", wifi.radio_active())
+
+print("--- checkpoint/restore (no network needed) ---")
+had_real_state = False
+try:
+    uos.stat(persist.STATE_FILE)
+    had_real_state = True
+    uos.rename(persist.STATE_FILE, persist.STATE_FILE + ".testbak")
+except OSError:
+    pass
+
+try:
+    ts2 = wifi.TimeSync()
+    before = ts2.rtc.datetime()
+    ts2._checkpoint()
+    saved = persist.load()
+    print("checkpointed:", saved)
+    ok = saved.get("datetime") == list(before[:7])
+    print("PASS: _checkpoint() wrote the current RTC value" if ok else "FAIL: checkpointed value doesn't match RTC")
+
+    ts2.rtc.datetime((2000, 1, 1, 5, 0, 0, 0, 0))  # scramble it
+    restored = ts2.restore_from_flash()
+    after = ts2.rtc.datetime()
+    ok = restored and after[:7] == before[:7]
+    print("PASS: restore_from_flash() set the RTC back to the checkpointed value" if ok
+          else f"FAIL: restore_from_flash()={restored}, rtc now={after}")
+finally:
+    try:
+        uos.remove(persist.STATE_FILE)
+    except OSError:
+        pass
+    if had_real_state:
+        uos.rename(persist.STATE_FILE + ".testbak", persist.STATE_FILE)
+        print("(restored the real state.json that was here before this test)")

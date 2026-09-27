@@ -23,6 +23,17 @@ SYNC_RETRY_INTERVAL_S = 60       # gap between attempts within one slot
 
 WIFI_CONNECT_TIMEOUT_S = 15
 
+# Goal: don't miss the alarm by more than ~10 minutes if power comes back
+# but Wi-Fi/the router is still down (routers often take longer to reboot
+# than the Pico does). This only bounds the error to ~10 min for a BRIEF
+# power outage -- persist.py has no way to track elapsed time while
+# actually powered off, so a longer outage adds its own full duration on
+# top of this, uncorrected (only a battery-backed RTC or UPS, see idea.txt,
+# actually solves that case). Every successful Wi-Fi sync also checkpoints
+# immediately regardless of this interval, so this constant only bounds the
+# gap *between* syncs -- see persist.py, wifi.TimeSync.maybe_checkpoint.
+PERSIST_CHECKPOINT_S = 10 * 60   # 10 minutes
+
 # --- Alarm ---------------------------------------------------------------
 DEFAULT_ALARM_HOUR = 7
 DEFAULT_ALARM_MINUTE = 0
