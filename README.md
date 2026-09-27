@@ -8,7 +8,7 @@ To modify... | see
 ---|---
 Wi-Fi creds | `src/secrets.py` (`WIFI_SSID`, `WIFI_PASSWORD`)
 Time-sync API, schedule (T0/interval/retries) | `src/config.py` (`TIME_API_URL`, `SYNC_*`)
-Default alarm time, long-press duration, edit idle-timeout, blink speed | `src/config.py` (`DEFAULT_ALARM_*`, `ALARM_LONG_PRESS_S`, `ALARM_EDIT_TIMEOUT_S`, `ALARM_BLINK_PERIOD_S`)
+Default alarm time, long-press duration, edit idle-timeout | `src/config.py` (`DEFAULT_ALARM_*`, `ALARM_LONG_PRESS_S`, `ALARM_EDIT_TIMEOUT_S`)
 Any GPIO pin assignment | `src/pins.py`
 How Wi-Fi connects / the actual sync HTTP call | `src/wifi.py` (`connect()`, `TimeSync._fetch_local_datetime()`)
 Clock/date layout, alarm-edit view, alarm-preview view, ring-flash border | `src/display.py` (`InkyDisplay.show_clock`, `show_alarm_edit`, `show_alarm_preview`, `flash_alarm_border`)
@@ -17,5 +17,7 @@ Alarm on/off + press-C time preview | `src/alarm.py` (`Alarm.enabled`, `toggle_e
 Low-power idle sleep / Wi-Fi radio power-down | `src/main.py` (tail of `main()`, `machine.lightsleep`), `src/wifi.py` (`radio_active`, `TimeSync._conclude`)
 The real buzzer tune (once wired up) | `src/buzzer.py` (`BUZZER_CONNECTED`, `PassiveBuzzer.play_alarm_tune`)
 Button behavior / main loop | `src/main.py` (`a_short`/`b_short`/`b_long`/`c_press`/`c_short`/`c_long`, `poll_button`, `main()`)
+Display refresh throttling (non-blocking, see `CLAUDE.md`) | `src/display.py` (`push_if_due`), `src/main.py` (called once per loop tick)
+Watching the board for hours without disturbing it | `tools/serial_logger.py` (background, timestamped log — see `CLAUDE.md`)
 
-Background/rationale for each piece: `docs/`. Per-module hardware/logic tests: `test/`. Build log: `todo.txt`. Parked feature ideas: `idea.txt`.
+Background/rationale for each piece: `docs/`. Per-module hardware/logic tests: `test/`. Build log: `todo.txt`. Parked feature ideas: `idea.txt`. Hardware/tooling gotchas: `CLAUDE.md`.

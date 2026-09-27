@@ -174,6 +174,7 @@ def main():
     # Boot-time sync: block once so the clock is correct right away, instead
     # of waiting for the next scheduled 4h slot (see wifi.TimeSync docstring).
     display.show_message("Syncing time...")
+    display.push_if_due()  # main loop isn't running yet to do this for us
     time_sync.sync_blocking()
 
     print("[main] boot sync done, entering main loop")
@@ -255,6 +256,13 @@ def main():
                 border_visible = not border_visible
                 last_border_toggle_ticks = now_ms
                 display.flash_alarm_border(alarm.hour, alarm.minute, border_visible)
+
+        # Non-blocking: only actually touches hardware (and only then
+        # blocks, for that single real push) if something was drawn above
+        # AND the panel's throttle window has elapsed -- see its docstring
+        # for why the previous design (blocking inside every view method)
+        # was a real bug, not just inefficient.
+        display.push_if_due()
 
         # Low power: lightsleep() halts the CPU instead of busy-waiting. Two
         # further notes, see docs/low-power.md for the full detail:

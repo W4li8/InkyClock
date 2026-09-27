@@ -42,12 +42,13 @@ BORDER_THICKNESS_PX = 6   # alarm-ring flash border thickness
 # Confirmed on real hardware: mashing buttons fast enough to call
 # graphics.update() again before the panel has physically finished its
 # previous refresh can crash the driver (not just look glitchy). Every view
-# method below goes through _throttled_update() instead of calling
-# self.graphics.update() directly, so no caller -- no matter how fast
-# button input arrives -- can ever push updates closer together than this,
-# regardless of main.py's own loop timing. 500ms is a conservative floor,
-# not a measured spec sheet number (Pimoroni doesn't publish one for
-# set_update_speed(3)); raise it if a crash is ever seen again.
+# method below only draws into the in-memory buffer (fast, no hardware
+# wait); main.py calls push_if_due() once per loop tick to actually push to
+# the panel, which enforces this floor WITHOUT blocking button polling --
+# see push_if_due()'s docstring for why blocking there was itself a bug.
+# 500ms is a conservative floor, not a measured spec sheet number
+# (Pimoroni doesn't publish one for set_update_speed(3)); raise it if a
+# crash is ever seen again.
 MIN_UPDATE_INTERVAL_MS = 500
 
 # RTC weekday convention this project uses (0=Monday..6=Sunday) -- must match
@@ -62,19 +63,42 @@ class InkyDisplay:
         self.graphics.set_update_speed(3)  # fastest refresh Pimoroni's driver offers
         self.graphics.set_font(FONT)
         self._last_update_ticks = None
+        self._dirty = False
 
     # -- low level helpers ----------------------------------------------
-    def _throttled_update(self):
-        """Push the drawn buffer to the panel, blocking first if needed so
-        two updates are never fired closer together than
-        MIN_UPDATE_INTERVAL_MS -- see that constant's comment for why."""
+    def push_if_due(self):
+        """
+        Non-blocking: push the currently-drawn buffer to the panel if
+        there's unpushed content AND MIN_UPDATE_INTERVAL_MS has elapsed
+        since the last push; otherwise return immediately without waiting.
+        main.py calls this once per loop tick, right after the mode
+        dispatch -- view methods below only ever draw into the buffer,
+        never push directly.
+
+        This isn't just an efficiency nicety: the previous design
+        (blocking inside every view method until the throttle window
+        passed) caused a real, reported regression -- "feels like I need
+        two clicks for anything" in edit mode. A full button press+release
+        happening entirely during that block is invisible to
+        poll_button()'s edge-detection, since main.py's loop wasn't
+        running at all during the wait. Coalescing rapid draws into a
+        single push once the panel's actually due, without ever blocking
+        button polling in between, fixed it. (The single unavoidable
+        blocking window left is the real hardware push itself, when it
+        does fire -- that's a physical constraint, not a design choice.)
+
+        Returns True if it actually pushed.
+        """
+        if not self._dirty:
+            return False
         now = time.ticks_ms()
         if self._last_update_ticks is not None:
-            wait_ms = MIN_UPDATE_INTERVAL_MS - time.ticks_diff(now, self._last_update_ticks)
-            if wait_ms > 0:
-                time.sleep_ms(wait_ms)
+            if time.ticks_diff(now, self._last_update_ticks) < MIN_UPDATE_INTERVAL_MS:
+                return False
         self.graphics.update()
         self._last_update_ticks = time.ticks_ms()
+        self._dirty = False
+        return True
 
     def _fit_scale(self, text, max_w, max_h, max_scale=20, min_scale=1):
         """
@@ -98,6 +122,7 @@ class InkyDisplay:
         self.graphics.set_pen(WHITE)
         self.graphics.clear()
         self.graphics.set_pen(BLACK)
+        self._dirty = True
 
     def _draw_centered(self, text, y, scale):
         w = self.graphics.measure_text(text, scale)
@@ -152,7 +177,12 @@ class InkyDisplay:
         mm_text = f"{minute:02}"
         hh_w = self.graphics.measure_text(hh_text, scale)
         mm_w = self.graphics.measure_text(mm_text, scale)
-        dot_gap_w = self.graphics.measure_text(":", scale)  # just reused as a sensible dot-area width
+        dot_size = max(2, scale)
+        spacing = self._digit_spacing(scale)
+        # Equal spacing (the font's own inter-digit gap) on each side of the
+        # dot, matching the HH/MM internal digit spacing -- was previously
+        # just measure_text(":"), which sat right up against the digits.
+        dot_gap_w = spacing + dot_size + spacing
 
         total_w = hh_w + dot_gap_w + mm_w
         hh_x = int((self.width - total_w) / 2)
@@ -161,8 +191,7 @@ class InkyDisplay:
         self.graphics.text(hh_text, hh_x, top_y, scale=scale)
         self.graphics.text(mm_text, mm_x, top_y, scale=scale)
 
-        dot_size = max(2, scale)
-        dot_x = hh_x + hh_w + (dot_gap_w - dot_size) // 2
+        dot_x = hh_x + hh_w + spacing
         cell_h = FONT_CELL_PX * scale
         self.graphics.rectangle(dot_x, top_y + cell_h // 3 - dot_size // 2, dot_size, dot_size)
         self.graphics.rectangle(dot_x, top_y + (cell_h * 2) // 3 - dot_size // 2, dot_size, dot_size)
@@ -201,8 +230,6 @@ class InkyDisplay:
         if not alarm_enabled:
             self.graphics.text("ALARM OFF", MARGIN_PX, MARGIN_PX, scale=1)
 
-        self._throttled_update()
-
     def show_alarm_preview(self, hour, minute, alarm_enabled):
         """
         Press-C preview (see alarm.py Alarm.start_preview / main.py
@@ -220,7 +247,6 @@ class InkyDisplay:
         scale, top_y, sub_line_y = self._big_time_layout(time_text)
         self._draw_time_with_dots(hour, minute, top_y, scale)
         self._draw_centered(state_text, sub_line_y, SUBLINE_SCALE)
-        self._throttled_update()
 
     def show_alarm_edit(self, hour, minute, digit_index):
         """
@@ -273,8 +299,6 @@ class InkyDisplay:
         for t in range(CURSOR_THICKNESS_PX):
             self.graphics.line(cursor_x0, sub_line_y + t, cursor_x0 + cursor_w, sub_line_y + t)
 
-        self._throttled_update()
-
     def flash_alarm_border(self, hour, minute, border_visible):
         """
         Alarm-ringing view: keeps the alarm's HH:MM on screen and toggles a
@@ -303,11 +327,14 @@ class InkyDisplay:
                 self.graphics.line(t, t, t, self.height - 1 - t)                                      # left
                 self.graphics.line(self.width - 1 - t, t, self.width - 1 - t, self.height - 1 - t)    # right
 
-        self._throttled_update()
-
     def show_message(self, text):
-        """Small utility view for boot/status messages (e.g. 'Syncing time...')."""
+        """
+        Small utility view for boot/status messages (e.g. 'Syncing time...').
+        Only draws -- like every other view now, push_if_due() does the
+        actual push; main.py calls it once explicitly right after this at
+        boot, since the main loop (which normally calls push_if_due() every
+        tick) hasn't started yet.
+        """
         print("[display] show_message:", text)
         self._clear()
         self.graphics.text(text, MARGIN_PX, self.height // 2 - 4, scale=1)
-        self._throttled_update()

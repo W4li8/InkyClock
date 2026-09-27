@@ -13,3 +13,6 @@ __pycache__/
 # Firmware build output -- large binary, easy to re-fetch via
 # build/fetch_firmware.sh, doesn't belong in version control.
 build/*.uf2
+
+# tools/serial_logger.py runtime output -- see CLAUDE.md
+.debug/

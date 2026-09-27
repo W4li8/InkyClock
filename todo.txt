@@ -257,3 +257,43 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   All automatic tests re-run and pass after this batch; test_display.py run
   live end-to-end with no errors -- visual confirmation of the dots/cursor
   is with the user now.
+
+[2026-09-27 11:39] Overnight clock check + a real regression found and
+  fixed, plus colon spacing.
+
+  - Checked in the morning: RTC frozen at ~02:42 (matching almost exactly
+    the last test-session timestamp from the previous night), ~8h24m behind
+    real time. Root cause NOT yet conclusively isolated to a single bug --
+    see below, this is now being tracked properly instead of guessed at.
+  - Set up .debug/serial_logger.py: a persistent background process
+    (nohup'd, survives across turns) that passively reads the serial port
+    (confirmed non-invasive, doesn't send a break) and appends timestamped
+    lines to .debug/overnight.log. This is a real diagnostic tool now, not
+    a one-off -- it's what will actually answer "did it survive unattended"
+    instead of me reconstructing after the fact. Note: this logger holds
+    the serial port open, so it must be killed before any mpremote command,
+    then restarted after -- did this correctly each time below.
+  - display.py: colon-dot spacing fixed -- was sitting flush against the
+    digits (just measure_text(":") as the whole gap), now uses the same
+    measured _digit_spacing() on each side of the dot, matching the
+    HH/MM internal digit spacing exactly.
+  - FOUND AND FIXED A REAL REGRESSION from the crash-fix commit: the
+    previous _throttled_update() design BLOCKED main.py's entire loop
+    (including button polling) for up to 500ms after every single digit
+    change. User-reported symptom: "feels like I need two clicks for
+    anything" in edit mode -- exactly what you'd expect, since a full
+    button press+release happening entirely during that block is invisible
+    to poll_button()'s edge-detection (the loop simply isn't running then).
+    Redesigned as non-blocking: view methods only draw into the buffer
+    (confirmed live: ~18ms per draw call, was 500-800ms); a dirty flag +
+    new push_if_due() (called once per main-loop tick from main.py, not
+    from inside display.py's view methods) only pushes to hardware when
+    something changed AND the throttle window has elapsed, and does so
+    without ever blocking the loop when it's not due. Confirmed live: 6
+    rapid draw calls took 107ms total (not 3-5s), an immediate push_if_due()
+    after one push correctly skipped in 0ms, first real push measured
+    289ms (a useful data point -- our 500ms floor has real margin above
+    the fastest observed actual refresh). All automatic tests re-run, pass.
+  - Fresh clean reset + logger restarted, left running untouched. Next
+    check will use .debug/overnight.log directly instead of re-deriving
+    from scratch.
