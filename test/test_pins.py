@@ -39,13 +39,13 @@ seen = {}
 for name, gpio in active.items():
     if gpio in seen:
         ok = False
-        print("FAIL: GP{} used by both {} and {}".format(gpio, seen[gpio], name))
+        print(f"FAIL: GP{gpio} used by both {seen[gpio]} and {name}")
     seen[gpio] = name
 
 for name, gpio in active.items():
     if gpio in wireless_reserved:
         ok = False
-        print("FAIL: {} = GP{} is wireless-reserved, unusable on a *_W board".format(name, gpio))
+        print(f"FAIL: {name} = GP{gpio} is wireless-reserved, unusable on a *_W board")
 
 bad_free = [p for p in pins.FREE_PINS if p in seen or p in wireless_reserved]
 if bad_free:

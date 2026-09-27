@@ -162,3 +162,98 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   main.py passes rtc.datetime()'s weekday field through (previously
   discarded as _wd) using the same 0=Monday..6=Sunday convention wifi.py's
   _WEEKDAY_FROM_NAME already establishes when setting the RTC.
+
+[2026-09-27 02:28] Big batch: logging, f-strings, CLAUDE.md, coherent
+  clock/edit/preview UI, and a real crash fix.
+
+  - Comprehensive debug logging added per user request: every module now
+    prints its own actions ([wifi]/[display]/[buzzer]/[main] prefixes) --
+    Wi-Fi connect/disconnect/API calls, every screen redraw with its
+    params, every buzzer tone on/off, every button press/release/long-press
+    with the mode it happened in, every mode transition. This is also what
+    made the passive-serial-watch technique below actually useful.
+  - Converted every .format() call in src/ and test/ to f-strings per user
+    request, after confirming live (including format specs like :02, :.2f)
+    that this firmware fully supports them.
+  - CLAUDE.md written: persistent hardware/firmware facts, the
+    mpremote-sends-a-break gotcha (and the cat/pyserial passive-read
+    workaround), and project conventions, so this doesn't need
+    re-discovering in a future session.
+  - Diagnosed the ongoing "clock is off" reports properly using the new
+    logging + a passive pyserial read (confirmed non-invasive, unlike
+    mpremote exec/run/fs which always send a break): a clean reset produces
+    a perfect boot -> connect -> sync -> loop-entry -> first clock draw
+    sequence with correct time. But a later direct RTC check found it
+    frozen again at the exact synced value from ~14 minutes earlier despite
+    RTC hardware demonstrably ticking correctly in isolation -- strong
+    circumstantial evidence that something about repeatedly
+    opening/closing serial connections during this debugging session
+    itself is implicated (not yet 100% proven; noted as an open item, see
+    below). Then, separately and conclusively, the user found a real,
+    reproducible crash: mashing A/C faster than the e-ink panel can
+    refresh crashes the driver -- this alone may also explain some/all of
+    the earlier freezes if it happened to occur outside observation.
+  - FIX: display.py now routes every view method through a new
+    _throttled_update() instead of calling graphics.update() directly,
+    enforcing MIN_UPDATE_INTERVAL_MS=500 between any two hardware updates
+    regardless of caller speed. Stress-tested live: 6 back-to-back
+    show_alarm_edit() calls with zero delay (far faster than humanly
+    possible) -- no crash, throttled to ~500-850ms apart as designed.
+  - UI redesign per user request: show_clock/show_alarm_edit/
+    show_alarm_preview now share _big_time_layout() so the big HH:MM is
+    pixel-identical across all three ("a coherent display"). The sub-line
+    row (where the date normally sits) now shows: date+weekday (clock), a
+    static underline cursor under the selected digit -- no more blinking,
+    since that was forcing a full e-ink redraw every ALARM_BLINK_PERIOD_S
+    even with zero input, a real contributor to the "screen update rate is
+    bad" complaint -- (edit), or "ALARM ON"/"ALARM OFF" (preview, replacing
+    the old corner-label-style text). Removed now-dead blink machinery
+    from alarm.py (_blink_on, update_blink, blink_visible) and
+    config.ALARM_BLINK_PERIOD_S.
+  - Confirmed already-correct, no code change needed: 24h zero-padded
+    HH:MM formatting (already f"{h:02}:{m:02}" everywhere) and
+    modulo-wraparound digit increment/decrement (already `% 24`/`% 60` in
+    adjust_digit(), Python's modulo already returns non-negative results
+    for negative dividends so decrementing past 0 already wrapped to max).
+  - Answered: alarm ringing vs editing has no precedence conflict by
+    construction -- check_ring() only runs in MODE_CLOCK, so ringing simply
+    cannot start during MODE_EDIT/MODE_PREVIEW. Documented known gap: if
+    you leave edit mode after the alarm's exact minute has already passed,
+    that day's alarm is silently skipped (no catch-up firing).
+
+  OPEN ITEM: the repeated-RTC-freeze pattern across this whole session may
+  now be fully explained by the update()-crash bug above (fixed), OR there
+  may still be a secondary factor related to serial-port open/close cycles
+  during active mpremote/pyserial monitoring -- not conclusively isolated
+  from the crash-bug explanation. Next real-world overnight run (untouched,
+  no monitoring) is the test: if the clock is still correct after 4h+
+  unattended, this is closed.
+
+[2026-09-27 02:40] Colon-as-dots + cursor alignment, iterated live against
+  real feedback:
+  - display.py: colon now drawn as two small square dots (graphics.rectangle,
+    confirmed exists/works live) instead of the bitmap font's ':' glyph,
+    which rendered as tall blocks at scale. Implemented by drawing "HH" and
+    "MM" as two independently-measured 2-char segments with an explicit
+    gap between them (_draw_time_with_dots), used by show_clock,
+    show_alarm_edit, and show_alarm_preview -- keeps "a coherent display"
+    intact and sidesteps a real ambiguity in how the font's inter-character
+    spacing behaved around a literal ':' in a 5-char string.
+  - Root-caused the cursor misalignment properly instead of guessing:
+    measured live that measure_text("00",s) - 2*measure_text("0",s) == s
+    exactly (the font's inter-character gap scales 1:1 with `scale`,
+    confirmed at two different scales) and that the gap precedes each
+    non-first character rather than trailing the one before it. New
+    _digit_spacing() derives this from the font at runtime rather than
+    hardcoding the observed "spacing == scale" pattern.
+  - Per user's follow-up ("perfect alignment isn't necessary, just pad it"):
+    show_alarm_edit computes each digit's tight glyph bounds from the above,
+    then pads CURSOR_PAD_FRACTION (25%) of one spacing-unit on each side,
+    staying centered -- visibly wider bar, no more chasing single-pixel
+    precision. CURSOR_THICKNESS_PX doubled 2->4 per request.
+  - idea.txt: dark-mode entry added, with the caveat that e-paper isn't
+    backlit so it's a contrast preference only, not a visible-in-the-dark
+    feature (that would need an actual light source).
+  All automatic tests re-run and pass after this batch; test_display.py run
+  live end-to-end with no errors -- visual confirmation of the dots/cursor
+  is with the user now.

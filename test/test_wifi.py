@@ -29,7 +29,7 @@ else:
         print("FAIL: time API call failed -- check config.TIME_API_URL / docs/time-sync.md")
     else:
         y, mo, d, wd, hh, mm, ss = result
-        print("PASS: got {:04}-{:02}-{:02} {:02}:{:02}:{:02} (weekday={})".format(y, mo, d, hh, mm, ss, wd))
+        print(f"PASS: got {y:04}-{mo:02}-{d:02} {hh:02}:{mm:02}:{ss:02} (weekday={wd})")
 
     wifi.disconnect()
     print("Radio powered back down (wifi.radio_active() should now be False).")

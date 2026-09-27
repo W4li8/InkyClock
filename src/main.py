@@ -119,6 +119,7 @@ def main():
     last_led_toggle_ticks = time.ticks_ms()
 
     def a_short():
+        print(f"[main] button A short (mode={alarm.mode})")
         if alarm.mode == MODE_EDIT:
             alarm.adjust_digit(+1)
         elif alarm.mode == MODE_RINGING:
@@ -126,6 +127,7 @@ def main():
             buzzer.silence()
 
     def b_short():
+        print(f"[main] button B short (mode={alarm.mode})")
         if alarm.mode == MODE_EDIT:
             alarm.next_digit()
         elif alarm.mode == MODE_RINGING:
@@ -133,6 +135,7 @@ def main():
             buzzer.silence()
 
     def b_long():
+        print(f"[main] button B LONG (mode={alarm.mode})")
         if alarm.mode == MODE_CLOCK:
             alarm.enter_edit()
         elif alarm.mode == MODE_EDIT:
@@ -146,10 +149,12 @@ def main():
         # long -- start_preview() shows the alarm time regardless; c_long()
         # below additionally toggles enabled if the hold reaches the full
         # config.ALARM_LONG_PRESS_S window.
+        print(f"[main] button C pressed (mode={alarm.mode})")
         if alarm.mode == MODE_CLOCK:
             alarm.start_preview()
 
     def c_short():
+        print(f"[main] button C released short (mode={alarm.mode})")
         if alarm.mode == MODE_EDIT:
             alarm.adjust_digit(-1)
         elif alarm.mode == MODE_RINGING:
@@ -157,20 +162,24 @@ def main():
             buzzer.silence()
 
     def c_long():
+        print(f"[main] button C LONG (mode={alarm.mode})")
         if alarm.mode in (MODE_CLOCK, MODE_PREVIEW):
             alarm.toggle_enabled()
         elif alarm.mode == MODE_RINGING:
             alarm.stop_ringing()
             buzzer.silence()
 
+    print("[main] InkyClock booting")
+
     # Boot-time sync: block once so the clock is correct right away, instead
     # of waiting for the next scheduled 4h slot (see wifi.TimeSync docstring).
     display.show_message("Syncing time...")
     time_sync.sync_blocking()
 
+    print("[main] boot sync done, entering main loop")
     last_mode = alarm.mode
     last_drawn_minute_key = None   # (y, mo, d, hh, mm) last shown in MODE_CLOCK
-    last_edit_state = None         # (hour, minute, digit_index, blink_visible) last shown in MODE_EDIT
+    last_edit_state = None         # (hour, minute, digit_index) last shown in MODE_EDIT
     last_preview_state = None      # (hour, minute, enabled) last shown in MODE_PREVIEW
     border_visible = True
     last_border_toggle_ticks = time.ticks_ms()
@@ -194,6 +203,7 @@ def main():
         # Force a redraw on any mode transition, so we never leave a stale
         # view (e.g. the alarm editor) on screen after switching modes.
         if alarm.mode != last_mode:
+            print(f"[main] mode: {last_mode} -> {alarm.mode}")
             last_drawn_minute_key = None
             last_edit_state = None
             last_preview_state = None
@@ -223,8 +233,7 @@ def main():
             if alarm.edit_idle_expired():
                 alarm.exit_edit()
             else:
-                alarm.update_blink()
-                edit_state = (alarm.hour, alarm.minute, alarm.digit_index, alarm.blink_visible)
+                edit_state = (alarm.hour, alarm.minute, alarm.digit_index)
                 if edit_state != last_edit_state:
                     display.show_alarm_edit(*edit_state)
                     last_edit_state = edit_state

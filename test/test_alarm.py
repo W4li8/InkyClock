@@ -39,30 +39,30 @@ check("enter_edit() resets digit_index to 0", a.digit_index == 0)
 a.hour, a.minute = 7, 0
 a.digit_index = 0  # hour tens
 a.adjust_digit(+1)
-check("digit 0 (hour tens) +1 -> hour 17", a.hour == 17, "got {}".format(a.hour))
+check("digit 0 (hour tens) +1 -> hour 17", a.hour == 17, f"got {a.hour}")
 a.adjust_digit(+1)
-check("digit 0 +1 again wraps 27->03 (mod 24)", a.hour == 3, "got {}".format(a.hour))
+check("digit 0 +1 again wraps 27->03 (mod 24)", a.hour == 3, f"got {a.hour}")
 
 a.hour = 23
 a.digit_index = 1  # hour ones
 a.adjust_digit(+1)
-check("digit 1 (hour ones) +1 wraps 23->00", a.hour == 0, "got {}".format(a.hour))
+check("digit 1 (hour ones) +1 wraps 23->00", a.hour == 0, f"got {a.hour}")
 
 a.minute = 50
 a.digit_index = 2  # minute tens
 a.adjust_digit(+1)
-check("digit 2 (minute tens) +1 wraps 50->00 (mod 60)", a.minute == 0, "got {}".format(a.minute))
+check("digit 2 (minute tens) +1 wraps 50->00 (mod 60)", a.minute == 0, f"got {a.minute}")
 
 a.minute = 59
 a.digit_index = 3  # minute ones
 a.adjust_digit(+1)
-check("digit 3 (minute ones) +1 wraps 59->00", a.minute == 0, "got {}".format(a.minute))
+check("digit 3 (minute ones) +1 wraps 59->00", a.minute == 0, f"got {a.minute}")
 
 a2 = Alarm()
 a2.enter_edit()
 for expected in (1, 2, 3, 0, 1):
     a2.next_digit()
-    check("next_digit() cycles to {} (wraps, never auto-exits)".format(expected), a2.digit_index == expected)
+    check(f"next_digit() cycles to {expected} (wraps, never auto-exits)", a2.digit_index == expected)
 check("still in MODE_EDIT after cycling past the 4th digit", a2.mode == MODE_EDIT)
 a2.exit_edit()
 check("exit_edit() -> MODE_CLOCK", a2.mode == MODE_CLOCK)

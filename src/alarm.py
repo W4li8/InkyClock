@@ -6,15 +6,19 @@ Button *reading* (debouncing, long-press timing) lives in main.py; this
 module only reacts to the discrete events main.py feeds it (adjust_digit,
 next_digit, enter_edit, start/stop_ringing).
 
-To change the default alarm time or long-press/blink timing, see
+To change the default alarm time or long-press timing, see
 config.DEFAULT_ALARM_HOUR/MINUTE, config.ALARM_LONG_PRESS_S,
-config.ALARM_BLINK_PERIOD_S, config.ALARM_EDIT_TIMEOUT_S.
+config.ALARM_EDIT_TIMEOUT_S.
 
 Long-press B toggles MODE_CLOCK <-> MODE_EDIT (enter_edit() / exit_edit()).
 Short-press B just cycles the selected digit 0->1->2->3->0->... forever --
 editing never auto-exits on its own; you leave either by long-pressing B
 again or by going idle for config.ALARM_EDIT_TIMEOUT_S (edit_idle_expired(),
-polled from main.py).
+polled from main.py). digit_index is shown on screen as a static underline
+cursor (display.show_alarm_edit), not a blink -- deliberately: a periodic
+blink meant a full e-ink redraw every tick even with no input, which was a
+real UX problem on this panel. A static cursor only needs a redraw when
+digit_index/hour/minute actually change.
 
 Press C (any duration) shows the alarm time for config.ALARM_LONG_PRESS_S
 seconds (start_preview() / preview_expired() / end_preview()) -- if you keep
@@ -47,8 +51,6 @@ class Alarm:
         self.enabled = True
         self.mode = MODE_CLOCK
         self.digit_index = 0  # 0=hour tens, 1=hour ones, 2=minute tens, 3=minute ones
-        self._blink_on = True
-        self._last_blink_ticks = time.ticks_ms()
         self._last_ring_minute_key = None  # (y, mo, d, hh, mm) already rung, avoid re-firing
         self._last_edit_activity_ticks = None
         self._preview_start_ticks = None
@@ -58,8 +60,6 @@ class Alarm:
         """Long-press B from MODE_CLOCK."""
         self.mode = MODE_EDIT
         self.digit_index = 0
-        self._blink_on = True
-        self._last_blink_ticks = time.ticks_ms()
         self._last_edit_activity_ticks = time.ticks_ms()
 
     def exit_edit(self):
@@ -113,8 +113,6 @@ class Alarm:
         0->1->2->3->0->... forever. See module docstring for how you
         actually leave edit mode now (it's not this)."""
         self.digit_index = (self.digit_index + 1) % 4
-        self._blink_on = True
-        self._last_blink_ticks = time.ticks_ms()
         self._touch_edit_activity()
 
     def adjust_digit(self, delta):
@@ -132,17 +130,6 @@ class Alarm:
         else:
             self.minute = (self.minute + delta * place) % 60
         self._touch_edit_activity()
-
-    def update_blink(self):
-        """Call every main-loop tick while in MODE_EDIT."""
-        now = time.ticks_ms()
-        if time.ticks_diff(now, self._last_blink_ticks) >= config.ALARM_BLINK_PERIOD_S * 1000:
-            self._blink_on = not self._blink_on
-            self._last_blink_ticks = now
-
-    @property
-    def blink_visible(self):
-        return self._blink_on
 
     # -- ring check -------------------------------------------------------
     def check_ring(self, now_tuple):

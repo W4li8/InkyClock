@@ -16,7 +16,7 @@ from buzzer import PassiveBuzzer, BUZZER_CONNECTED
 import pins
 
 print("=== test_buzzer ===")
-print("pins.BUZZER = GP{}".format(pins.BUZZER))
+print(f"pins.BUZZER = GP{pins.BUZZER}")
 
 if not BUZZER_CONNECTED:
     print("FAIL: buzzer.BUZZER_CONNECTED is False in src/buzzer.py -- nothing will sound.")
@@ -25,7 +25,7 @@ else:
 
     print("Step 1: three distinct rising tones (A4, A5, A6)...")
     for freq, ms in ((440, 300), (880, 300), (1760, 300)):
-        print("  {} Hz for {} ms".format(freq, ms))
+        print(f"  {freq} Hz for {ms} ms")
         buzz.tone(freq, ms, volume=0.5)
         time.sleep_ms(150)
 

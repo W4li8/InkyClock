@@ -37,16 +37,22 @@ def connect(timeout_s=None):
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     if not wlan.isconnected():
+        print(f"[wifi] connecting to {WIFI_SSID}...")
         wlan.connect(WIFI_SSID, WIFI_PASSWORD)
         start = time.ticks_ms()
         while not wlan.isconnected():
             if time.ticks_diff(time.ticks_ms(), start) > timeout_s * 1000:
+                print(f"[wifi] connect timed out after {timeout_s}s")
                 return None
             time.sleep_ms(200)
+        print(f"[wifi] connected, ip={wlan.ifconfig()[0]}")
+    else:
+        print(f"[wifi] already connected, ip={wlan.ifconfig()[0]}")
     return wlan
 
 
 def disconnect():
+    print("[wifi] disconnecting, powering radio down")
     wlan = network.WLAN(network.STA_IF)
     wlan.disconnect()
     wlan.active(False)
@@ -112,11 +118,13 @@ class TimeSync:
         if requests is None:
             print("[wifi] urequests not installed -- see README setup step")
             return None
+        print("[wifi] GET", config.TIME_API_URL)
         try:
             r = requests.get(config.TIME_API_URL, timeout=10)
         except Exception as exc:
             print("[wifi] time API request failed:", exc)
             return None
+        print("[wifi] response status:", r.status_code)
         try:
             data = r.json()
         except Exception as exc:
@@ -149,7 +157,7 @@ class TimeSync:
             return False
         y, mo, d, wd, hh, mm, ss = result
         self.rtc.datetime((y, mo, d, wd, hh, mm, ss, 0))
-        print("[wifi] time synced: {:04}-{:02}-{:02} {:02}:{:02}:{:02}".format(y, mo, d, hh, mm, ss))
+        print(f"[wifi] time synced: {y:04}-{mo:02}-{d:02} {hh:02}:{mm:02}:{ss:02}")
         return True
 
     # -- public API ----------------------------------------------------------
@@ -165,7 +173,7 @@ class TimeSync:
     def sync_blocking(self):
         """Run the full retry sequence right now, blocking (boot-time use only)."""
         for attempt in range(1, config.SYNC_RETRY_COUNT + 1):
-            print("[wifi] boot sync attempt {}/{}".format(attempt, config.SYNC_RETRY_COUNT))
+            print(f"[wifi] boot sync attempt {attempt}/{config.SYNC_RETRY_COUNT}")
             if self._attempt_once():
                 return self._conclude(True)
             if attempt < config.SYNC_RETRY_COUNT:
@@ -186,6 +194,7 @@ class TimeSync:
 
         if not self._retrying:
             if self.seconds_until_next_slot() <= 0:
+                print("[wifi] scheduled sync slot reached, starting attempts")
                 self._retrying = True
                 self._attempts_used = 0
                 self._next_attempt_ticks = None
@@ -196,7 +205,7 @@ class TimeSync:
             return  # not time yet for the next retry within this slot
 
         self._attempts_used += 1
-        print("[wifi] sync attempt {}/{}".format(self._attempts_used, config.SYNC_RETRY_COUNT))
+        print(f"[wifi] sync attempt {self._attempts_used}/{config.SYNC_RETRY_COUNT}")
         ok = self._attempt_once()
 
         if ok:

@@ -30,14 +30,18 @@ class PassiveBuzzer:
     def tone(self, freq, ms, volume=0.3):
         """Play a single tone for `ms` milliseconds (blocking). No-op if not connected."""
         if self._pwm is None:
+            print(f"[buzzer] tone {freq}Hz {ms}ms (not connected, no-op)")
             return
+        print(f"[buzzer] ON  {freq}Hz {ms}ms vol={volume}")
         self._pwm.freq(freq)
         self._pwm.duty_u16(int(65535 * volume / 2))
         time.sleep_ms(ms)
         self._pwm.duty_u16(0)
+        print("[buzzer] OFF")
 
     def silence(self):
         if self._pwm is not None:
+            print("[buzzer] silence()")
             self._pwm.duty_u16(0)
 
     def play_alarm_tune(self):

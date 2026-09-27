@@ -42,6 +42,15 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   (e.g. requiring N consecutive stable reads) if double-triggers ever show
   up in practice.
 
+- Dark mode (white-on-black instead of black-on-white). Note: this is
+  purely an aesthetic/contrast-preference toggle, not a "visible in the
+  dark" feature -- the Inky Pack's e-paper is reflective, not backlit, so
+  neither color scheme is readable without ambient light in a dark room.
+  If actual dark-room visibility is wanted, that needs a real light source
+  (e.g. a physical front-light strip, or timing the clock to briefly flash
+  the buzzer/an added LED on a button press) -- unrelated to display.py's
+  pen colors.
+
 - Sleep schedule tracker: log "time in bed" (some detectable start event --
   maybe a light/motion sensor, or just "alarm was set"/last-button-press-
   before-morning) through "time alarm dismissed" each night, sent somewhere
