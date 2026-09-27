@@ -28,6 +28,16 @@ tick (MODE_CLOCK, no button held) is bounded at config.IDLE_LIGHTSLEEP_S
 rather than sleeping until the next minute -- a button press can't wake a
 timed lightsleep() early on rp2 (see docs/low-power.md), so responsiveness
 comes from keeping that bound short, not from an interrupt.
+
+Heartbeat: the onboard LED ("LED" pin -- on a *_W board this is wired
+through the CYW43 wireless chip, not a plain GPIO, but works fine even with
+Wi-Fi off, confirmed live: toggling it after wlan.active(False) still
+worked) blinks at config.HEARTBEAT_HZ in every mode, as a simple "the board
+is powered and the loop hasn't hung" indicator. Implemented as a genuine
+wall-clock toggle (every 1000/(HEARTBEAT_HZ*2) ms) rather than "toggle every
+other loop iteration" -- the loop's own iteration rate already varies by
+mode (20ms active / 250ms idle, see above), so counting iterations wouldn't
+give a consistent, mode-independent Hz.
 """
 
 import time
@@ -89,6 +99,11 @@ def main():
     state_b = ButtonState(button_b)
     state_c = ButtonState(button_c)
 
+    led = machine.Pin("LED", machine.Pin.OUT)  # onboard LED, see module docstring
+    led_on = False
+    last_led_toggle_ticks = time.ticks_ms()
+    heartbeat_toggle_ms = int(1000 / (config.HEARTBEAT_HZ * 2))
+
     def a_short():
         if alarm.mode == MODE_EDIT:
             alarm.adjust_digit(+1)
@@ -141,6 +156,13 @@ def main():
                     long_press_s=config.ALARM_LONG_PRESS_S)
         poll_button(state_c, short_press_cb=c_short, long_press_cb=c_long,
                     long_press_s=config.ALARM_LONG_PRESS_S)
+
+        # Power-on heartbeat: see module docstring for why this is wall-clock
+        # timed rather than toggled once per loop iteration.
+        if time.ticks_diff(time.ticks_ms(), last_led_toggle_ticks) >= heartbeat_toggle_ms:
+            led_on = not led_on
+            led.value(led_on)
+            last_led_toggle_ticks = time.ticks_ms()
 
         # Force a redraw on any mode transition, so we never leave a stale
         # view (e.g. the alarm editor) on screen after switching modes.

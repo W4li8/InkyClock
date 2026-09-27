@@ -9,3 +9,7 @@ __pycache__/
 # Editor / OS cruft
 .DS_Store
 *.swp
+
+# Firmware build output -- large binary, easy to re-fetch via
+# build/fetch_firmware.sh, doesn't belong in version control.
+build/*.uf2

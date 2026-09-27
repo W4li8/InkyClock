@@ -33,3 +33,6 @@ ALARM_RING_FLASH_HZ = 2         # requested border-flash rate; see display.py
 MAIN_LOOP_TICK_S = 0.02         # active tick: editing, ringing, radio on, or a button currently held
 IDLE_LIGHTSLEEP_S = 0.25        # idle tick: MODE_CLOCK, nothing held, radio off -- see docs/low-power.md
                                  # for why this can't just be "sleep until next minute, wake on button"
+
+# --- Power-on heartbeat -----------------------------------------------------
+HEARTBEAT_HZ = 2                 # onboard LED blink rate, all modes -- "power is on" indicator
