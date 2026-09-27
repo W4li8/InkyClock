@@ -1,11 +1,10 @@
 """
 buzzer.py -- passive piezo buzzer interface (PWM-driven).
 
-The buzzer isn't wired up yet, so play_alarm_tune() just logs and returns --
-main.py falls back to the display's border flash as the audible-alarm
-stand-in (see display.InkyDisplay.flash_alarm_border). Once a piezo is on
-pins.BUZZER, flip BUZZER_CONNECTED to True and fill in the real tune inside
-play_alarm_tune() -- main.py needs no changes either way.
+Wired up as of 2026-09-27 (piezo on pins.BUZZER / GP22 <-> GND), confirmed
+with test/test_buzzer.py. play_alarm_tune() still plays only a placeholder
+two-tone chime -- fill in a real tune there when you want one; main.py needs
+no changes either way.
 
 Wiring / active-vs-passive background: docs/buzzer-notes.md
 Bridge-tied (louder, 2-pin) option: pins.BUZZER_BRIDGE_A / _BRIDGE_B, not
@@ -17,7 +16,7 @@ from machine import Pin, PWM
 
 import pins
 
-BUZZER_CONNECTED = False  # flip to True once the piezo is actually wired to pins.BUZZER
+BUZZER_CONNECTED = True  # piezo is wired to pins.BUZZER -- flip back to False if unplugged
 
 
 class PassiveBuzzer:

@@ -93,3 +93,18 @@ Known limitations flagged in code comments (not fixed, by design/scope):
 
 Known-good baseline as of this entry: firmware v1.29.0 (Pimoroni), all
 src/*.py on-device, secrets.py corrected locally, board running unattended.
+
+[2026-09-27 00:12] Buzzer physically wired up by user. Set
+  buzzer.BUZZER_CONNECTED = True (was False placeholder). Added a full
+  test/ suite, one file per src/*.py module, each runnable independently via
+  `mpremote run test/test_X.py` (test/README.md explains the split):
+    - test_pins, test_config, test_secrets, test_alarm, test_main: pure
+      logic/import checks, no hardware, automatic PASS/FAIL
+    - test_wifi: hardware (radio + time API), automatic PASS/FAIL
+    - test_buzzer, test_display: hardware, human-verified (sound/screen
+      can't be checked from software)
+  Ran all 6 automatic tests live against the board -- all PASS. Ran
+  test_buzzer.py live too (3 tones + sweep commanded on GP22, no errors) --
+  actual audible confirmation is pending the user's own ears, noted clearly
+  since there's no microphone on this end. Board reset back to standalone
+  main.py afterward.

@@ -2,7 +2,7 @@
 
 MicroPython alarm clock for a Pico 2 W + Pimoroni Pico Inky Pack. Shows a big 24h clock (+ date), syncs time over Wi-Fi every 4h, and has a long-press digit editor for the alarm.
 
-**Setup:** copy `src/secrets.example.py` → `src/secrets.py`, fill in your Wi-Fi creds, install `urequests` (`mip install urequests`), copy everything in `src/` to the Pico's filesystem root.
+**Setup:** copy `src/secrets.example.py` → `src/secrets.py`, fill in your Wi-Fi creds, flash Pimoroni's MicroPython (`build/fetch_firmware.sh`, not stock MicroPython — see `docs/pico-inky-pack.md`), then `build/flash.sh` to deploy. `test/` has one independently-runnable check per `src/*.py` module (`test/README.md`) — worth running after any change, especially `test_pins`/`test_config`/`test_alarm` (no hardware needed) before bothering with the ones that need eyes/ears on the board.
 
 To modify... | see
 ---|---
@@ -18,4 +18,4 @@ Low-power idle sleep / Wi-Fi radio power-down | `src/main.py` (tail of `main()`,
 The real buzzer tune (once wired up) | `src/buzzer.py` (`BUZZER_CONNECTED`, `PassiveBuzzer.play_alarm_tune`)
 Button behavior / main loop | `src/main.py` (`a_short`/`b_short`/`b_long`/`c_short`/`c_long`, `main()`)
 
-Background/rationale for each piece: `docs/`. Build log: `todo.txt`. Parked feature ideas: `idea.txt`.
+Background/rationale for each piece: `docs/`. Per-module hardware/logic tests: `test/`. Build log: `todo.txt`. Parked feature ideas: `idea.txt`.
