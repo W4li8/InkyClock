@@ -57,12 +57,17 @@ class InkyDisplay:
         return x, w
 
     # -- views ---------------------------------------------------------
-    def show_clock(self, hour, minute, year=None, month=None, day=None):
+    def show_clock(self, hour, minute, year=None, month=None, day=None, alarm_enabled=True):
         """
         Big centered 24h HH:MM clock, occupying most of the screen. If a
         date is given, a smaller DD/MM/YY line is drawn underneath it --
         called from main.py every time the RTC-driven minute changes (which
         includes a resync moving the date), see main.py's minute_key.
+
+        alarm_enabled=False (long-press C, see alarm.py) draws a small
+        "ALARM OFF" label in the corner instead of leaving no indicator --
+        deliberately unobtrusive so the clock still "occupies most of the
+        space" when the alarm is on, which is the common case.
         """
         time_text = "{:02}:{:02}".format(hour, minute)
         date_text = None
@@ -84,6 +89,9 @@ class InkyDisplay:
         if date_text:
             date_y = top_y + clock_h + DATE_GAP_PX
             self._draw_centered(date_text, date_y, DATE_SCALE)
+
+        if not alarm_enabled:
+            self.graphics.text("ALARM OFF", MARGIN_PX, MARGIN_PX, scale=1)
 
         self.graphics.update()
 

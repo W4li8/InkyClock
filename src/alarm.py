@@ -10,6 +10,10 @@ To change the default alarm time or long-press/blink timing, see
 config.DEFAULT_ALARM_HOUR/MINUTE, config.ALARM_LONG_PRESS_S,
 config.ALARM_BLINK_PERIOD_S.
 
+Long-press C (from MODE_CLOCK) toggles self.enabled -- see toggle_enabled()
+and check_ring() below. main.py shows the enabled/disabled state on screen
+(display.show_clock's alarm_enabled param).
+
 Known limitation: if the alarm's own trigger minute passes while you happen
 to be mid-edit (MODE_EDIT), it won't fire -- check_ring() is only evaluated
 in MODE_CLOCK. Rare in practice (editing the alarm takes seconds), but real;
@@ -29,6 +33,7 @@ class Alarm:
     def __init__(self):
         self.hour = config.DEFAULT_ALARM_HOUR
         self.minute = config.DEFAULT_ALARM_MINUTE
+        self.enabled = True
         self.mode = MODE_CLOCK
         self.digit_index = 0  # 0=hour tens, 1=hour ones, 2=minute tens, 3=minute ones
         self._blink_on = True
@@ -45,6 +50,12 @@ class Alarm:
 
     def _exit_edit(self):
         self.mode = MODE_CLOCK
+
+    # -- enable / disable ---------------------------------------------------
+    def toggle_enabled(self):
+        """Long-press C (config.ALARM_LONG_PRESS_S) from MODE_CLOCK. Doesn't
+        touch hour/minute/mode -- just whether check_ring() can ever fire."""
+        self.enabled = not self.enabled
 
     # -- digit editing -------------------------------------------------
     def next_digit(self):
@@ -93,8 +104,11 @@ class Alarm:
         now_tuple = (year, month, day, hour, minute, second) from the RTC.
         Returns True the first time `now` matches the alarm time (won't
         re-fire again until the minute changes, even if dismissed and the
-        same minute is still ticking).
+        same minute is still ticking). Always False while self.enabled is
+        False (toggle_enabled(), long-press C).
         """
+        if not self.enabled:
+            return False
         y, mo, d, hh, mm, _ss = now_tuple
         if hh == self.hour and mm == self.minute:
             key = (y, mo, d, hh, mm)

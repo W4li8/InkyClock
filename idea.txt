@@ -11,3 +11,26 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   every power loss and only gets corrected again once wifi.TimeSync
   succeeds. An external RTC would survive outages and give a sane baseline
   immediately at boot even before/without a successful Wi-Fi sync.
+  Prefer PCF8523 over DS3231 -- lower backup current, and most PCF8523
+  breakout boards skip the trickle-charge circuit that some cheap DS3231
+  boards wire in for a rechargeable cell (which degrades/damages a normal
+  non-rechargeable CR2032 if left in place -- check for it either way).
+  Whichever chip: expect to swap the CR2032 every 5-10 years -- that's the
+  battery's own shelf life, not something the RTC's ~1-3uA draw limits.
+
+- Snooze button. Right now any press during MODE_RINGING just dismisses
+  (alarm.stop_ringing() in main.py); there's no separate "quiet for N
+  minutes then ring again" path.
+
+- Display contrast/orientation flip. Useful if the case ends up mounted
+  upside-down or at an angle; picographics likely has a rotate/flip call --
+  check the picographics reference in docs/.
+
+- Weekday-only / weekend-skip alarm toggle. alarm.py's Alarm already has an
+  enabled flag (long-press C) -- this would extend that to a per-weekday
+  mask instead of a single on/off.
+
+- Debounce hardening. main.py's poll_button() is simple edge-polling, fine
+  for the tactile switches on the Inky Pack, but worth a real debounce
+  (e.g. requiring N consecutive stable reads) if double-triggers ever show
+  up in practice.

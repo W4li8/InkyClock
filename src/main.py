@@ -12,9 +12,18 @@ Button behaviour (see alarm.py for the state machine these call into):
                           and exits after the 4th). While MODE_RINGING, dismiss.
   - long B (3s)         : while MODE_CLOCK, enter alarm-edit mode.
                           while MODE_RINGING, dismiss.
+  - long C (3s)         : while MODE_CLOCK, toggle the alarm on/off
+                          (alarm.toggle_enabled(); shown as "ALARM OFF" on
+                          screen when off, see display.show_clock).
+                          while MODE_RINGING, dismiss.
 
 To change what "short" vs "long" press means, see config.ALARM_LONG_PRESS_S
 and poll_button()/ButtonState below.
+
+Low power: the main-loop tick uses machine.lightsleep() instead of a plain
+time.sleep() whenever the Wi-Fi radio is off (wifi.radio_active()), which is
+almost always -- see wifi.TimeSync's low-power note. The radio itself is
+only powered on for the few seconds/minutes around each 4h sync.
 """
 
 import time
@@ -104,6 +113,13 @@ def main():
             alarm.stop_ringing()
             buzzer.silence()
 
+    def c_long():
+        if alarm.mode == MODE_CLOCK:
+            alarm.toggle_enabled()
+        elif alarm.mode == MODE_RINGING:
+            alarm.stop_ringing()
+            buzzer.silence()
+
     # Boot-time sync: block once so the clock is correct right away, instead
     # of waiting for the next scheduled 4h slot (see wifi.TimeSync docstring).
     display.show_message("Syncing time...")
@@ -119,7 +135,8 @@ def main():
         poll_button(state_a, short_press_cb=a_short)
         poll_button(state_b, short_press_cb=b_short, long_press_cb=b_long,
                     long_press_s=config.ALARM_LONG_PRESS_S)
-        poll_button(state_c, short_press_cb=c_short)
+        poll_button(state_c, short_press_cb=c_short, long_press_cb=c_long,
+                    long_press_s=config.ALARM_LONG_PRESS_S)
 
         # Force a redraw on any mode transition, so we never leave a stale
         # view (e.g. the alarm editor) on screen after switching modes.
@@ -141,9 +158,11 @@ def main():
             if alarm.check_ring((year, month, day, hour, minute, second)):
                 alarm.start_ringing()
             else:
-                minute_key = (year, month, day, hour, minute)
+                # alarm.enabled is part of the key so long-press-C (which
+                # doesn't touch the clock/date) still forces an immediate redraw.
+                minute_key = (year, month, day, hour, minute, alarm.enabled)
                 if minute_key != last_drawn_minute_key:
-                    display.show_clock(hour, minute, year, month, day)
+                    display.show_clock(hour, minute, year, month, day, alarm_enabled=alarm.enabled)
                     last_drawn_minute_key = minute_key
 
         elif alarm.mode == MODE_EDIT:
@@ -162,7 +181,15 @@ def main():
                 last_border_toggle_ticks = now_ms
                 display.flash_alarm_border(alarm.hour, alarm.minute, border_visible)
 
-        time.sleep(config.MAIN_LOOP_TICK_S)
+        # Low power: lightsleep() halts the CPU instead of busy-waiting, but
+        # is best avoided while the Wi-Fi radio is mid-connection on some
+        # rp2 W-board firmware -- fall back to a plain sleep in that window
+        # (wifi.radio_active() is only True for the brief sync bursts).
+        tick_ms = int(config.MAIN_LOOP_TICK_S * 1000)
+        if wifi.radio_active():
+            time.sleep_ms(tick_ms)
+        else:
+            machine.lightsleep(tick_ms)
 
 
 if __name__ == "__main__":

@@ -45,6 +45,20 @@ def disconnect():
     wlan.active(False)
 
 
+def radio_active():
+    """
+    True while the Wi-Fi radio is powered on. TimeSync powers it down
+    between sync attempts (see _conclude() below) since it's only needed in
+    short bursts every few hours -- the CYW43439 draws real current
+    (tens of mA) whenever active/associated. main.py checks this before
+    deciding whether machine.lightsleep() is safe to use for the idle-loop
+    delay (some rp2 W-board firmware has had issues lightsleeping with the
+    radio mid-connection, so main.py falls back to a plain time.sleep()
+    while this is True).
+    """
+    return network.WLAN(network.STA_IF).active()
+
+
 class TimeSync:
     """
     Keeps machine.RTC() close to real time by calling config.TIME_API_URL on
@@ -59,6 +73,10 @@ class TimeSync:
 
     On total failure (all SYNC_RETRY_COUNT attempts) the RTC -- the "local
     estimate" -- is left untouched until the next scheduled slot.
+
+    Low-power note: the radio is powered off (disconnect()) as soon as a
+    slot's attempts conclude, one way or the other (_conclude()), and only
+    powered back on for the next slot -- see radio_active().
     """
 
     def __init__(self):
@@ -129,18 +147,25 @@ class TimeSync:
         return True
 
     # -- public API ----------------------------------------------------------
+    def _conclude(self, ok):
+        """Shared end-of-sequence bookkeeping: power the radio back down
+        (see radio_active() docstring) now that this slot's attempts, one
+        way or another, are done."""
+        self.last_sync_ok = ok
+        self._retrying = False
+        disconnect()
+        return ok
+
     def sync_blocking(self):
         """Run the full retry sequence right now, blocking (boot-time use only)."""
         for attempt in range(1, config.SYNC_RETRY_COUNT + 1):
             print("[wifi] boot sync attempt {}/{}".format(attempt, config.SYNC_RETRY_COUNT))
             if self._attempt_once():
-                self.last_sync_ok = True
-                return True
+                return self._conclude(True)
             if attempt < config.SYNC_RETRY_COUNT:
                 time.sleep(config.SYNC_RETRY_INTERVAL_S)
         print("[wifi] boot sync failed, keeping whatever the RTC already has")
-        self.last_sync_ok = False
-        return False
+        return self._conclude(False)
 
     def poll(self):
         """
@@ -169,14 +194,12 @@ class TimeSync:
         ok = self._attempt_once()
 
         if ok:
-            self.last_sync_ok = True
-            self._retrying = False
+            self._conclude(True)
             return
 
         if self._attempts_used >= config.SYNC_RETRY_COUNT:
             print("[wifi] all sync attempts failed, keeping local estimate until next slot")
-            self.last_sync_ok = False
-            self._retrying = False
+            self._conclude(False)
             return
 
         self._next_attempt_ticks = time.ticks_add(now, config.SYNC_RETRY_INTERVAL_S * 1000)

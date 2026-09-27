@@ -36,3 +36,15 @@ Known limitations flagged in code comments (not fixed, by design/scope):
 - display.py layout constants (FONT_CELL_PX etc.) are computed dynamically
   where possible but the height estimate is nominal -- untested on real
   hardware, may need a tweak once flashed to an actual Inky Pack.
+
+[2026-09-26 23:24] Done: long-press C = toggle alarm on/off (alarm.py
+  Alarm.enabled/toggle_enabled, wired in main.py, "ALARM OFF" indicator in
+  display.py show_clock). Low power: wifi.py now disconnects the radio
+  between sync slots (radio_active()/_conclude()) and main.py uses
+  machine.lightsleep() for the idle tick whenever the radio is off. idea.txt
+  updated with the previously-proposed hobbyist extensions (snooze, display
+  contrast/orientation flip, weekday-only alarm, button debounce hardening)
+  plus RTC battery-life/charging-circuit notes from chat. README pointer
+  table updated. Confirmed with user: /dev/tty.usbmodem1101 is the Pico 2 W
+  (matches the usbmodem device detected earlier; the Inky Pack screen itself
+  is not USB-visible and can't be detected that way regardless).
