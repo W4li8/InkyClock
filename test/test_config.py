@@ -39,9 +39,9 @@ check("ALARM_EDIT_TIMEOUT_S > 0", config.ALARM_EDIT_TIMEOUT_S > 0)
 check("ALARM_RING_FLASH_HZ > 0", config.ALARM_RING_FLASH_HZ > 0)
 
 check("MAIN_LOOP_TICK_S > 0", config.MAIN_LOOP_TICK_S > 0)
-check("IDLE_LIGHTSLEEP_S > 0", config.IDLE_LIGHTSLEEP_S > 0)
-check("IDLE_LIGHTSLEEP_S >= MAIN_LOOP_TICK_S (idle should be the *longer* tick)",
-      config.IDLE_LIGHTSLEEP_S >= config.MAIN_LOOP_TICK_S)
+check("IDLE_TICK_S > 0", config.IDLE_TICK_S > 0)
+check("IDLE_TICK_S >= MAIN_LOOP_TICK_S (idle should be the *longer* tick)",
+      config.IDLE_TICK_S >= config.MAIN_LOOP_TICK_S)
 
 check("HEARTBEAT_WIFI_HZ > 0", config.HEARTBEAT_WIFI_HZ > 0)
 check("HEARTBEAT_IDLE_HZ > 0", config.HEARTBEAT_IDLE_HZ > 0)

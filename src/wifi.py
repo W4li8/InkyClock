@@ -63,11 +63,8 @@ def radio_active():
     True while the Wi-Fi radio is powered on. TimeSync powers it down
     between sync attempts (see _conclude() below) since it's only needed in
     short bursts every few hours -- the CYW43439 draws real current
-    (tens of mA) whenever active/associated. main.py checks this before
-    deciding whether machine.lightsleep() is safe to use for the idle-loop
-    delay (some rp2 W-board firmware has had issues lightsleeping with the
-    radio mid-connection, so main.py falls back to a plain time.sleep()
-    while this is True).
+    (tens of mA) whenever active/associated. main.py uses this for the
+    heartbeat LED's Wi-Fi-status coupling (fast blink while True).
     """
     return network.WLAN(network.STA_IF).active()
 

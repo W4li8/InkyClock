@@ -24,6 +24,22 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   non-rechargeable CR2032 if left in place -- check for it either way).
   Whichever chip: expect to swap the CR2032 every 5-10 years -- that's the
   battery's own shelf life, not something the RTC's ~1-3uA draw limits.
+  Note: this is unrelated to (and not a fix for) the lightsleep/RTC-freeze
+  bug in docs/low-power.md -- that was the RP2350's internal RTC misbehaving
+  while the board is powered and running; an external RTC module only
+  helps across an actual power-loss, which no internal-RTC fix (lightsleep
+  or otherwise) can address regardless.
+
+- UPS (uninterruptible power supply) module for seamless switchover on
+  power loss -- e.g. a small LiPo + charge/boost circuit (many off-the-shelf
+  "UPS HAT" style boards for this exist) that keeps the Pico continuously
+  powered through a mains/USB outage instead of just recovering gracefully
+  after one. Stronger than the RTC-module idea above or flash-persisted
+  alarm settings: those two help the clock come back correctly after an
+  outage, a UPS keeps it actually running (alarm still fires, display still
+  updates) *through* one. The three ideas are complementary, not
+  alternatives -- a real "keeps working no matter what" clock would
+  plausibly want all three eventually.
 
 - Snooze button. Right now any press during MODE_RINGING just dismisses
   (alarm.stop_ringing() in main.py); there's no separate "quiet for N
@@ -36,6 +52,35 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
 - Weekday-only / weekend-skip alarm toggle. alarm.py's Alarm already has an
   enabled flag (long-press C) -- this would extend that to a per-weekday
   mask instead of a single on/off.
+
+- Persist alarm settings (hour/minute/enabled) across reboot/power-loss.
+  No extra hardware needed -- the Pico's onboard flash already hosts the
+  filesystem; write a small state file on actual change (exit_edit,
+  toggle_enabled), read it back at boot with a fallback to config defaults
+  if missing/corrupt. See todo.txt's state-machine gap review, gap #2, for
+  the full writeup (currently a crash/power-cycle silently resets the
+  alarm to config.DEFAULT_ALARM_HOUR/MINUTE with no indication).
+
+- Real CPU-idle power savings during MODE_CLOCK, done properly this time.
+  time.sleep_ms() (see docs/low-power.md) doesn't halt the CPU the way
+  machine.lightsleep() would have -- that idea got dropped because
+  lightsleep() turned out to freeze machine.RTC() outright, a correctness
+  bug, not a missed optimization. A real fix would maintain the clock as a
+  software value (an RTC snapshot + a time.ticks_ms() reference taken at
+  each successful sync, confirmed lightsleep-safe, with "now" computed from
+  the ticks_ms() delta) instead of reading machine.RTC() during normal
+  operation, which would let lightsleep() come back safely for the idle
+  tick. Real effort, not attempted -- see docs/low-power.md's closing
+  section.
+
+- Multiple alarms. Current design is a single Alarm instance
+  (hour/minute/enabled); supporting several would mean a list of them, a
+  way to pick/cycle which one you're editing (current UI only has A/B/C,
+  already fully spoken for -- would need a new interaction, e.g. long-hold
+  A or a dedicated "next alarm" gesture), and check_ring()/MODE_PREVIEW
+  logic extended to loop over all enabled ones instead of assuming one.
+  Ties into the reboot-persistence idea below -- would want to save/load
+  the whole list, not just one hour/minute/enabled triple.
 
 - Debounce hardening. main.py's poll_button() is simple edge-polling, fine
   for the tactile switches on the Inky Pack, but worth a real debounce

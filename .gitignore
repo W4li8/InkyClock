@@ -16,3 +16,6 @@ build/*.uf2
 
 # tools/serial_logger.py runtime output -- see CLAUDE.md
 .debug/
+
+# Claude Code harness state, not project content
+.claude/

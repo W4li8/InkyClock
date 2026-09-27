@@ -338,3 +338,52 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   first in the loop each iteration) -- latency, not a miss. RTC weekday
   auto-increment between resyncs is trusted hardware behavior, not
   independently verified -- self-corrects within 4h regardless if wrong.
+
+[2026-09-27 12:38] THE FIX: found and confirmed the actual root cause of
+  every "clock stopped" report this entire session -- machine.lightsleep()
+  freezes machine.RTC() for its whole duration on this board/firmware.
+  Proven via a clean, isolated, reproducible test with no other subsystem
+  involved: 200x machine.lightsleep(250) in a tight loop, rtc.datetime()
+  printed the IDENTICAL value all 200 times (50 real seconds, zero
+  advancement). Cross-checked time.ticks_ms() across the same kind of loop
+  -- it tracks real elapsed time correctly (2503ms measured for 10x250ms)
+  -- confirming this is specifically an RTC problem, not a general
+  MicroPython-timing-under-lightsleep problem. This fully explains why
+  short "reset + wait 15-30s" tests always looked fine (mostly measuring
+  the boot sync's accuracy) while real unattended runs kept drifting worse
+  the longer they went -- MODE_CLOCK's idle path spends nearly all its
+  time inside the exact call that was breaking the clock.
+
+  FIX: main.py's main-loop tick is now plain time.sleep_ms() in every mode,
+  never machine.lightsleep(). config.IDLE_LIGHTSLEEP_S renamed to
+  IDLE_TICK_S (no longer a lightsleep duration, just a poll interval) and
+  all references updated (main.py, wifi.py's radio_active() docstring,
+  test/test_config.py, README.md, docs/README.md). docs/low-power.md
+  rewritten with the full story + the actual C source citation for the
+  RP2350-specific (not RP2040) sleep_en0/1 bit set, which is what's
+  actually relevant on this board. CLAUDE.md updated with this as the
+  top-line hardware fact -- this is the single most important thing to
+  remember about this project's history.
+
+  Deployed, all automatic tests re-run and pass, then DIRECTLY CONFIRMED
+  the fix live and organically: fresh reset -> boot sync -> entered main
+  loop at 12:37:27 (drew "12:37") -> completely unattended for the loop's
+  own idle ticking -> correctly redrew "12:38" at 12:38:01, right on
+  schedule, no intervention. First time all session the clock has survived
+  a minute boundary purely on its own. tools/serial_logger.py (the
+  persistent background logger, promoted from a throwaway .debug/ script
+  to a real committed tool this session) is what made this observable
+  without disturbing it.
+
+  idea.txt additions from this stretch: multiple alarms, reboot-persistent
+  alarm settings (no extra hardware needed -- onboard flash filesystem),
+  a real CPU-idle power-saving follow-up (software clock via ticks_ms(),
+  once lightsleep() is well enough understood to bring back safely),
+  external RTC module clarified as solving a DIFFERENT problem than the
+  lightsleep bug (survives power-loss, not a lightsleep fix), and a UPS
+  module idea (keeps the clock actually running through an outage, not
+  just recovering after one -- complementary to the RTC-module idea, not
+  a replacement for it).
+
+  Logger left running for continued observation through at least the next
+  scheduled sync slot (13:23).

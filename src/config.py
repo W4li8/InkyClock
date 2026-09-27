@@ -32,12 +32,16 @@ ALARM_RING_FLASH_HZ = 2         # requested border-flash rate; see display.py
                                  # docstring for why e-ink won't quite hit this
 
 # --- Main loop -------------------------------------------------------------
+# Both are plain time.sleep_ms(), NOT machine.lightsleep() -- confirmed live
+# that lightsleep() freezes machine.RTC() for its entire duration on this
+# board/firmware, which is a correctness bug, not just a power-saving
+# nicety gone wrong. See docs/low-power.md.
 MAIN_LOOP_TICK_S = 0.02         # active tick: editing, ringing, radio on, or a button currently held
-IDLE_LIGHTSLEEP_S = 0.25        # idle tick: MODE_CLOCK, nothing held, radio off -- see docs/low-power.md
-                                 # for why this can't just be "sleep until next minute, wake on button"
+IDLE_TICK_S = 0.25              # idle tick: MODE_CLOCK, nothing held -- bounded short so a button
+                                 # press is still picked up promptly, not for any lightsleep-wake reason
 
 # --- Power-on heartbeat -----------------------------------------------------
 # Doubles as a live Wi-Fi-status indicator: fast while connected/syncing,
-# slow the rest of the time (idle, radio off, ticking along in light sleep).
+# slow the rest of the time (idle).
 HEARTBEAT_WIFI_HZ = 5             # blink rate while wifi.radio_active()
 HEARTBEAT_IDLE_HZ = 0.5           # blink rate otherwise

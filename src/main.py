@@ -31,14 +31,19 @@ Button behaviour (see alarm.py for the state machine these call into):
 To change what "short" vs "long" press means, see config.ALARM_LONG_PRESS_S
 and poll_button()/ButtonState below.
 
-Low power: the main-loop tick uses machine.lightsleep() instead of a plain
-time.sleep() whenever the Wi-Fi radio is off (wifi.radio_active()), which is
-almost always -- see wifi.TimeSync's low-power note; the radio itself is
-only powered on for the few seconds/minutes around each 4h sync. The idle
-tick (MODE_CLOCK, no button held) is bounded at config.IDLE_LIGHTSLEEP_S
-rather than sleeping until the next minute -- a button press can't wake a
-timed lightsleep() early on rp2 (see docs/low-power.md), so responsiveness
-comes from keeping that bound short, not from an interrupt.
+Low power: the main-loop tick is a plain time.sleep_ms(), deliberately NOT
+machine.lightsleep() -- confirmed live (isolated, reproducible test) that
+lightsleep() freezes machine.RTC() for its entire duration on this board/
+firmware, which silently broke the clock every time MODE_CLOCK went idle
+(that idle path spends nearly all its time asleep by design). This was the
+root cause of this session's recurring "clock stopped" reports, not a
+fluke -- see docs/low-power.md for the full story and why the earlier
+lightsleep-based design seemed to work in short tests. The idle tick
+(MODE_CLOCK, no button held) is still bounded at config.IDLE_TICK_S rather
+than sleeping until the next minute, now purely so a button press is
+picked up promptly, not for any lightsleep-wake reason. The Wi-Fi-radio-off
+power saving (wifi.TimeSync's low-power note) is untouched by any of this
+and remains the real power win.
 
 Heartbeat: the onboard LED ("LED" pin -- on a *_W board this is wired
 through the CYW43 wireless chip, not a plain GPIO, but works fine even with
@@ -264,26 +269,26 @@ def main():
         # was a real bug, not just inefficient.
         display.push_if_due()
 
-        # Low power: lightsleep() halts the CPU instead of busy-waiting. Two
-        # further notes, see docs/low-power.md for the full detail:
-        #  - it's best avoided while the Wi-Fi radio is mid-connection on
-        #    some rp2 W-board firmware, so fall back to a plain sleep then
-        #    (wifi.radio_active() is only True for the brief sync bursts).
-        #  - a button press does NOT wake a timed lightsleep() early on rp2
-        #    (its GPIO clock is gated off during the sleep) -- so instead of
-        #    "sleep until next minute, interrupted by a button", idle ticks
-        #    are just bounded short enough (IDLE_LIGHTSLEEP_S) that a press
-        #    is always caught on the next wake regardless.
+        # NOT machine.lightsleep() -- confirmed live (isolated, reproducible,
+        # 200 iterations) that it freezes machine.RTC() completely on this
+        # board/firmware for the whole sleep duration. Since MODE_CLOCK's
+        # idle path spends nearly all its time in this call, that silently
+        # broke the clock every single time it went idle -- the root cause
+        # of this session's recurring "clock stopped" reports, not a fluke.
+        # time.ticks_ms() DOES survive lightsleep correctly (confirmed:
+        # 2503ms measured for 10x250ms), so it stays trustworthy for
+        # anything timing-based in this file; machine.RTC() does not survive
+        # lightsleep, which is exactly what broke. time.sleep_ms() has none
+        # of this: it doesn't touch clock gating, only the CPU's own wait
+        # state, so RTC keeps ticking normally through it. Full story:
+        # docs/low-power.md.
         any_button_held = button_a.value() == 0 or button_b.value() == 0 or button_c.value() == 0
         if alarm.mode == MODE_CLOCK and not any_button_held:
-            tick_ms = int(config.IDLE_LIGHTSLEEP_S * 1000)
+            tick_ms = int(config.IDLE_TICK_S * 1000)
         else:
             tick_ms = int(config.MAIN_LOOP_TICK_S * 1000)
 
-        if wifi.radio_active():
-            time.sleep_ms(int(config.MAIN_LOOP_TICK_S * 1000))
-        else:
-            machine.lightsleep(tick_ms)
+        time.sleep_ms(tick_ms)
 
 
 if __name__ == "__main__":
