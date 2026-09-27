@@ -123,3 +123,42 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   temp (self-heating from CPU/USB reg), so not usable for the idea.txt
   A/C-control idea. Noted in idea.txt. Board reset to standalone after both
   tests.
+
+[2026-09-27 01:35] Investigated "clock is off" report: NOT a code bug. Root
+  cause was my own repeated mpremote exec/run/fs-cp commands during earlier
+  testing, each of which sends a break to grab REPL control -- one of these
+  landed mid boot-time sync_blocking(), killing it before the RTC got set,
+  after which the board just sat idle (main() dead) with the RTC frozen at
+  its 2021-01-01 power-on default, ticking correctly but from a stale base.
+  Verified conclusively: (1) RTC advances at exactly 1:1 with real elapsed
+  time (two reads 8s apart differed by exactly 8s) -- so the RTC hardware
+  itself is fine; (2) a clean single reset + fully undisturbed 15s wait
+  produced an RTC reading 6s off (just sync latency) matching real time.
+  No fix needed in the shipped code; this only happens when something is
+  actively sending serial breaks to the board, which normal unattended
+  operation never does.
+
+  Also implemented two button-behavior changes per user request:
+  - alarm.py: next_digit() now cycles 0->1->2->3->0->... forever instead of
+    auto-exiting after the 4th digit. New exit_edit() (public, was
+    _exit_edit) is called by long-press B while already in MODE_EDIT
+    (toggle) or by the new edit_idle_expired()/config.ALARM_EDIT_TIMEOUT_S=15s
+    inactivity timeout (checked in main.py's MODE_EDIT branch).
+  - alarm.py: new MODE_PREVIEW + start_preview()/preview_expired()/
+    end_preview(): pressing C (any duration, from MODE_CLOCK) shows the
+    alarm time for config.ALARM_LONG_PRESS_S (3s) regardless of hold length;
+    holding the full 3s also fires the existing toggle_enabled() (main.py's
+    c_long now checks MODE_CLOCK or MODE_PREVIEW). New poll_button()
+    press_cb parameter added to support triggering on the press edge, not
+    just release/long-press-threshold.
+  - display.py: new show_alarm_preview() view ("ALARM -- ON/OFF" + big time).
+  - test/test_alarm.py rewritten for the new cycling/timeout/preview
+    behavior (27 checks, all PASS live). test/test_display.py extended with
+    the new preview view + weekday param, ran live (no errors, visual
+    confirmation pending).
+
+  Also finished the date-display request from earlier: show_clock() now
+  takes weekday and renders "Mon 27/09/26"-style (DATE_SCALE doubled 1->2).
+  main.py passes rtc.datetime()'s weekday field through (previously
+  discarded as _wd) using the same 0=Monday..6=Sunday convention wifi.py's
+  _WEEKDAY_FROM_NAME already establishes when setting the RTC.

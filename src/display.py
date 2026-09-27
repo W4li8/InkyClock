@@ -21,9 +21,13 @@ WHITE = 15
 FONT = "bitmap8"
 FONT_CELL_PX = 8          # bitmap8's nominal glyph cell, used to estimate text height
 MARGIN_PX = 10            # side/vertical margin kept clear around the big clock
-DATE_SCALE = 1            # small font for the DD/MM/YY sub-line
+DATE_SCALE = 2            # font for the "Sat 27/09/26" sub-line
 DATE_GAP_PX = 6           # gap between the clock and the date line
 BORDER_THICKNESS_PX = 6   # alarm-ring flash border thickness
+
+# RTC weekday convention this project uses (0=Monday..6=Sunday) -- must match
+# wifi.py's _WEEKDAY_FROM_NAME, which is what actually sets this value on the RTC.
+_WEEKDAY_ABBR = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
 class InkyDisplay:
@@ -64,12 +68,13 @@ class InkyDisplay:
         return x, w
 
     # -- views ---------------------------------------------------------
-    def show_clock(self, hour, minute, year=None, month=None, day=None, alarm_enabled=True):
+    def show_clock(self, hour, minute, year=None, month=None, day=None, weekday=None, alarm_enabled=True):
         """
         Big centered 24h HH:MM clock, occupying most of the screen. If a
-        date is given, a smaller DD/MM/YY line is drawn underneath it --
-        called from main.py every time the RTC-driven minute changes (which
-        includes a resync moving the date), see main.py's minute_key.
+        date is given, a "Sat 27/09/26"-style sub-line is drawn underneath
+        it (weekday name omitted if `weekday` isn't given) -- called from
+        main.py every time the RTC-driven minute changes (which includes a
+        resync moving the date), see main.py's minute_key.
 
         alarm_enabled=False (long-press C, see alarm.py) draws a small
         "ALARM OFF" label in the corner instead of leaving no indicator --
@@ -80,6 +85,8 @@ class InkyDisplay:
         date_text = None
         if year is not None:
             date_text = "{:02}/{:02}/{:02}".format(day, month, year % 100)
+            if weekday is not None and 0 <= weekday <= 6:
+                date_text = "{} {}".format(_WEEKDAY_ABBR[weekday], date_text)
 
         self._clear()
 
@@ -100,6 +107,25 @@ class InkyDisplay:
         if not alarm_enabled:
             self.graphics.text("ALARM OFF", MARGIN_PX, MARGIN_PX, scale=1)
 
+        self.graphics.update()
+
+    def show_alarm_preview(self, hour, minute, alarm_enabled):
+        """
+        Press-C preview (see alarm.py Alarm.start_preview / main.py
+        MODE_PREVIEW): the alarm's set time, big and centered like
+        show_clock, labeled so it's not mistaken for the live clock.
+        """
+        text = "{:02}:{:02}".format(hour, minute)
+        label = "ALARM -- ON" if alarm_enabled else "ALARM -- OFF"
+
+        self._clear()
+        label_h = FONT_CELL_PX + 6
+        max_w = self.width - 2 * MARGIN_PX
+        max_h = self.height - 2 * MARGIN_PX - label_h
+        scale = self._fit_scale(text, max_w, max_h)
+        y = MARGIN_PX + label_h
+        self._draw_centered(text, y, scale)
+        self.graphics.text(label, MARGIN_PX, 2, scale=1)
         self.graphics.update()
 
     def show_alarm_edit(self, hour, minute, digit_index, digit_visible):

@@ -8,8 +8,10 @@ Exercises digit editing, wraparound, enable/disable, and the ring-check
 gating -- the part of this project that's easiest to silently break with an
 off-by-one and hardest to notice by eye on the actual clock.
 """
+import time
+
 import config
-from alarm import Alarm, MODE_CLOCK, MODE_EDIT
+from alarm import Alarm, MODE_CLOCK, MODE_EDIT, MODE_PREVIEW
 
 print("=== test_alarm ===")
 ok = True
@@ -58,11 +60,20 @@ check("digit 3 (minute ones) +1 wraps 59->00", a.minute == 0, "got {}".format(a.
 
 a2 = Alarm()
 a2.enter_edit()
-for expected in (1, 2, 3):
+for expected in (1, 2, 3, 0, 1):
     a2.next_digit()
-    check("next_digit() advances to {}".format(expected), a2.digit_index == expected)
-a2.next_digit()
-check("next_digit() past the 4th digit exits to MODE_CLOCK", a2.mode == MODE_CLOCK)
+    check("next_digit() cycles to {} (wraps, never auto-exits)".format(expected), a2.digit_index == expected)
+check("still in MODE_EDIT after cycling past the 4th digit", a2.mode == MODE_EDIT)
+a2.exit_edit()
+check("exit_edit() -> MODE_CLOCK", a2.mode == MODE_CLOCK)
+
+a2b = Alarm()
+a2b.enter_edit()
+check("edit_idle_expired() False right after entering", a2b.edit_idle_expired() is False)
+a2b._last_edit_activity_ticks = time.ticks_add(time.ticks_ms(), -int(config.ALARM_EDIT_TIMEOUT_S * 1000) - 100)
+check("edit_idle_expired() True once ALARM_EDIT_TIMEOUT_S has passed", a2b.edit_idle_expired() is True)
+a2b.adjust_digit(+1)
+check("adjust_digit() resets the idle timer", a2b.edit_idle_expired() is False)
 
 a3 = Alarm()
 was_enabled = a3.enabled
@@ -79,5 +90,14 @@ a5 = Alarm()
 a5.hour, a5.minute = 7, 30
 a5.enabled = False
 check("check_ring() never fires while disabled", a5.check_ring((2026, 1, 1, 7, 30, 0)) is False)
+
+a6 = Alarm()
+a6.start_preview()
+check("start_preview() -> MODE_PREVIEW", a6.mode == MODE_PREVIEW)
+check("preview_expired() False right after starting", a6.preview_expired() is False)
+a6._preview_start_ticks = time.ticks_add(time.ticks_ms(), -int(config.ALARM_LONG_PRESS_S * 1000) - 100)
+check("preview_expired() True once ALARM_LONG_PRESS_S has passed", a6.preview_expired() is True)
+a6.end_preview()
+check("end_preview() -> MODE_CLOCK", a6.mode == MODE_CLOCK)
 
 print("PASS: all alarm.py checks passed" if ok else "test_alarm: FAILED, see above")

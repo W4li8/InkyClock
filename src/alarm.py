@@ -8,16 +8,26 @@ next_digit, enter_edit, start/stop_ringing).
 
 To change the default alarm time or long-press/blink timing, see
 config.DEFAULT_ALARM_HOUR/MINUTE, config.ALARM_LONG_PRESS_S,
-config.ALARM_BLINK_PERIOD_S.
+config.ALARM_BLINK_PERIOD_S, config.ALARM_EDIT_TIMEOUT_S.
 
-Long-press C (from MODE_CLOCK) toggles self.enabled -- see toggle_enabled()
-and check_ring() below. main.py shows the enabled/disabled state on screen
-(display.show_clock's alarm_enabled param).
+Long-press B toggles MODE_CLOCK <-> MODE_EDIT (enter_edit() / exit_edit()).
+Short-press B just cycles the selected digit 0->1->2->3->0->... forever --
+editing never auto-exits on its own; you leave either by long-pressing B
+again or by going idle for config.ALARM_EDIT_TIMEOUT_S (edit_idle_expired(),
+polled from main.py).
+
+Press C (any duration) shows the alarm time for config.ALARM_LONG_PRESS_S
+seconds (start_preview() / preview_expired() / end_preview()) -- if you keep
+holding for that whole window, main.py's long-press-C callback also fires
+toggle_enabled() below, using the same window as the display timer. Short C
+(outside MODE_EDIT/RINGING) does nothing extra; short C *during* MODE_EDIT
+still decrements the selected digit via adjust_digit(), unrelated to preview.
 
 Known limitation: if the alarm's own trigger minute passes while you happen
-to be mid-edit (MODE_EDIT), it won't fire -- check_ring() is only evaluated
-in MODE_CLOCK. Rare in practice (editing the alarm takes seconds), but real;
-see todo.txt.
+to be mid-edit (MODE_EDIT) or mid-preview (MODE_PREVIEW), it won't fire --
+check_ring() is only evaluated in MODE_CLOCK. Rare in practice (a preview is
+at most 3s; editing now can run up to config.ALARM_EDIT_TIMEOUT_S idle, so
+marginally more exposure than before, but still real; see todo.txt.
 """
 
 import time
@@ -27,6 +37,7 @@ import config
 MODE_CLOCK = "clock"
 MODE_EDIT = "edit"
 MODE_RINGING = "ringing"
+MODE_PREVIEW = "preview"
 
 
 class Alarm:
@@ -39,38 +50,72 @@ class Alarm:
         self._blink_on = True
         self._last_blink_ticks = time.ticks_ms()
         self._last_ring_minute_key = None  # (y, mo, d, hh, mm) already rung, avoid re-firing
+        self._last_edit_activity_ticks = None
+        self._preview_start_ticks = None
 
     # -- entering / leaving edit mode -------------------------------------
     def enter_edit(self):
-        """Long-press B (config.ALARM_LONG_PRESS_S) from MODE_CLOCK."""
+        """Long-press B from MODE_CLOCK."""
         self.mode = MODE_EDIT
         self.digit_index = 0
         self._blink_on = True
         self._last_blink_ticks = time.ticks_ms()
+        self._last_edit_activity_ticks = time.ticks_ms()
 
-    def _exit_edit(self):
+    def exit_edit(self):
+        """Long-press B again while MODE_EDIT (toggle), or edit_idle_expired()
+        timing out -- either way just returns to the clock view. No separate
+        "save" step needed: adjust_digit() already mutated hour/minute live."""
         self.mode = MODE_CLOCK
+
+    def edit_idle_expired(self):
+        """Call every tick while MODE_EDIT. True once
+        config.ALARM_EDIT_TIMEOUT_S has passed with no next_digit()/
+        adjust_digit() activity -- main.py then calls exit_edit()."""
+        if self._last_edit_activity_ticks is None:
+            return False
+        return time.ticks_diff(time.ticks_ms(), self._last_edit_activity_ticks) >= config.ALARM_EDIT_TIMEOUT_S * 1000
+
+    def _touch_edit_activity(self):
+        self._last_edit_activity_ticks = time.ticks_ms()
 
     # -- enable / disable ---------------------------------------------------
     def toggle_enabled(self):
-        """Long-press C (config.ALARM_LONG_PRESS_S) from MODE_CLOCK. Doesn't
-        touch hour/minute/mode -- just whether check_ring() can ever fire."""
+        """Fires from main.py's long-press-C callback (MODE_CLOCK or
+        MODE_PREVIEW) once the press crosses config.ALARM_LONG_PRESS_S --
+        the same window start_preview() is already timing the display for.
+        Doesn't touch hour/minute/mode -- just whether check_ring() can fire."""
         self.enabled = not self.enabled
+
+    # -- press-C preview ------------------------------------------------
+    def start_preview(self):
+        """Press C from MODE_CLOCK (any duration, see main.py's c_press):
+        show the alarm time for config.ALARM_LONG_PRESS_S seconds regardless
+        of how long C is actually held."""
+        self.mode = MODE_PREVIEW
+        self._preview_start_ticks = time.ticks_ms()
+
+    def preview_expired(self):
+        """Call every tick while MODE_PREVIEW. True once the display window
+        (config.ALARM_LONG_PRESS_S, shared with the long-press-toggle
+        threshold) has elapsed."""
+        if self._preview_start_ticks is None:
+            return True
+        return time.ticks_diff(time.ticks_ms(), self._preview_start_ticks) >= config.ALARM_LONG_PRESS_S * 1000
+
+    def end_preview(self):
+        self.mode = MODE_CLOCK
+        self._preview_start_ticks = None
 
     # -- digit editing -------------------------------------------------
     def next_digit(self):
-        """
-        Short-press B while editing: advance to the next digit. Cycling
-        through all 4 (hour tens -> hour ones -> minute tens -> minute
-        ones) and pressing B once more on the last one saves and returns
-        to the clock view.
-        """
-        if self.digit_index < 3:
-            self.digit_index += 1
-            self._blink_on = True
-            self._last_blink_ticks = time.ticks_ms()
-        else:
-            self._exit_edit()
+        """Short-press B while editing: cycle to the next digit, wrapping
+        0->1->2->3->0->... forever. See module docstring for how you
+        actually leave edit mode now (it's not this)."""
+        self.digit_index = (self.digit_index + 1) % 4
+        self._blink_on = True
+        self._last_blink_ticks = time.ticks_ms()
+        self._touch_edit_activity()
 
     def adjust_digit(self, delta):
         """
@@ -86,6 +131,7 @@ class Alarm:
             self.hour = (self.hour + delta * place) % 24
         else:
             self.minute = (self.minute + delta * place) % 60
+        self._touch_edit_activity()
 
     def update_blink(self):
         """Call every main-loop tick while in MODE_EDIT."""

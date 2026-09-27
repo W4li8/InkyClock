@@ -26,7 +26,8 @@ WIFI_CONNECT_TIMEOUT_S = 15
 # --- Alarm ---------------------------------------------------------------
 DEFAULT_ALARM_HOUR = 7
 DEFAULT_ALARM_MINUTE = 0
-ALARM_LONG_PRESS_S = 3.0        # hold B this long to enter alarm-set mode
+ALARM_LONG_PRESS_S = 3.0        # hold B/C this long to toggle edit mode / show+toggle alarm enabled
+ALARM_EDIT_TIMEOUT_S = 15       # auto-exit MODE_EDIT after this long with no A/B/C activity
 ALARM_BLINK_PERIOD_S = 0.6      # digit blink half-period while editing
 ALARM_RING_FLASH_HZ = 2         # requested border-flash rate; see display.py
                                  # docstring for why e-ink won't quite hit this

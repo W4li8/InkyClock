@@ -6,16 +6,27 @@ so the clock is right immediately -> loop forever polling buttons, the RTC,
 and (non-blocking) the 4h resync schedule via wifi.TimeSync.poll().
 
 Button behaviour (see alarm.py for the state machine these call into):
-  - short A / short C : while MODE_EDIT, +1 / -1 on the selected digit.
+  - short A            : while MODE_EDIT, +1 on the selected digit.
                          while MODE_RINGING, dismiss.
-  - short B            : while MODE_EDIT, advance to the next digit (saves
-                          and exits after the 4th). While MODE_RINGING, dismiss.
-  - long B (3s)         : while MODE_CLOCK, enter alarm-edit mode.
-                          while MODE_RINGING, dismiss.
-  - long C (3s)         : while MODE_CLOCK, toggle the alarm on/off
-                          (alarm.toggle_enabled(); shown as "ALARM OFF" on
-                          screen when off, see display.show_clock).
-                          while MODE_RINGING, dismiss.
+  - short B            : while MODE_EDIT, cycle to the next digit
+                          (0->1->2->3->0->..., never auto-exits -- see below
+                          for how you actually leave). While MODE_RINGING, dismiss.
+  - long B (3s)         : toggles MODE_CLOCK <-> MODE_EDIT (enter_edit() /
+                          exit_edit()). While MODE_RINGING, dismiss instead.
+  - (MODE_EDIT also auto-exits after config.ALARM_EDIT_TIMEOUT_S of no A/B/C
+     activity -- alarm.edit_idle_expired(), polled below.)
+  - press C (any length): from MODE_CLOCK, shows the alarm time for
+                          config.ALARM_LONG_PRESS_S seconds regardless of
+                          hold duration (MODE_PREVIEW, c_press/preview_expired).
+                          During MODE_EDIT instead, short C is -1 on the
+                          selected digit (adjust_digit(-1), same as short A's
+                          +1, just the other direction).
+                          While MODE_RINGING, dismiss.
+  - long C (3s)         : if the press is held for the full preview window
+                          (MODE_CLOCK or MODE_PREVIEW), also toggles the
+                          alarm on/off (alarm.toggle_enabled(); shown via the
+                          preview's "ALARM -- ON/OFF" label and MODE_CLOCK's
+                          "ALARM OFF" corner tag). While MODE_RINGING, dismiss.
 
 To change what "short" vs "long" press means, see config.ALARM_LONG_PRESS_S
 and poll_button()/ButtonState below.
@@ -49,7 +60,7 @@ import pins
 import wifi
 from display import InkyDisplay
 from buzzer import PassiveBuzzer
-from alarm import Alarm, MODE_CLOCK, MODE_EDIT, MODE_RINGING
+from alarm import Alarm, MODE_CLOCK, MODE_EDIT, MODE_RINGING, MODE_PREVIEW
 
 
 class ButtonState:
@@ -62,16 +73,19 @@ class ButtonState:
         self.long_press_fired = False
 
 
-def poll_button(state, short_press_cb=None, long_press_cb=None, long_press_s=None):
-    """Call once per main-loop tick per button. Fires short_press_cb on
-    release (unless a long press already fired), long_press_cb once as soon
-    as the hold crosses long_press_s."""
+def poll_button(state, press_cb=None, short_press_cb=None, long_press_cb=None, long_press_s=None):
+    """Call once per main-loop tick per button. Fires press_cb immediately
+    on the press edge, short_press_cb on release (unless a long press
+    already fired), long_press_cb once as soon as the hold crosses
+    long_press_s."""
     pressed = state.pin.value() == 0
     now = time.ticks_ms()
 
     if pressed and not state.was_pressed:
         state.press_start_ticks = now
         state.long_press_fired = False
+        if press_cb:
+            press_cb()
 
     if pressed and long_press_cb and not state.long_press_fired:
         if long_press_s and time.ticks_diff(now, state.press_start_ticks) >= long_press_s * 1000:
@@ -121,9 +135,19 @@ def main():
     def b_long():
         if alarm.mode == MODE_CLOCK:
             alarm.enter_edit()
+        elif alarm.mode == MODE_EDIT:
+            alarm.exit_edit()
         elif alarm.mode == MODE_RINGING:
             alarm.stop_ringing()
             buzzer.silence()
+
+    def c_press():
+        # Fires immediately on press, before we know if it'll be short or
+        # long -- start_preview() shows the alarm time regardless; c_long()
+        # below additionally toggles enabled if the hold reaches the full
+        # config.ALARM_LONG_PRESS_S window.
+        if alarm.mode == MODE_CLOCK:
+            alarm.start_preview()
 
     def c_short():
         if alarm.mode == MODE_EDIT:
@@ -133,7 +157,7 @@ def main():
             buzzer.silence()
 
     def c_long():
-        if alarm.mode == MODE_CLOCK:
+        if alarm.mode in (MODE_CLOCK, MODE_PREVIEW):
             alarm.toggle_enabled()
         elif alarm.mode == MODE_RINGING:
             alarm.stop_ringing()
@@ -147,6 +171,7 @@ def main():
     last_mode = alarm.mode
     last_drawn_minute_key = None   # (y, mo, d, hh, mm) last shown in MODE_CLOCK
     last_edit_state = None         # (hour, minute, digit_index, blink_visible) last shown in MODE_EDIT
+    last_preview_state = None      # (hour, minute, enabled) last shown in MODE_PREVIEW
     border_visible = True
     last_border_toggle_ticks = time.ticks_ms()
 
@@ -154,7 +179,7 @@ def main():
         poll_button(state_a, short_press_cb=a_short)
         poll_button(state_b, short_press_cb=b_short, long_press_cb=b_long,
                     long_press_s=config.ALARM_LONG_PRESS_S)
-        poll_button(state_c, short_press_cb=c_short, long_press_cb=c_long,
+        poll_button(state_c, press_cb=c_press, short_press_cb=c_short, long_press_cb=c_long,
                     long_press_s=config.ALARM_LONG_PRESS_S)
 
         # Power-on heartbeat / Wi-Fi status light: see module docstring for
@@ -171,6 +196,7 @@ def main():
         if alarm.mode != last_mode:
             last_drawn_minute_key = None
             last_edit_state = None
+            last_preview_state = None
             last_mode = alarm.mode
             if alarm.mode == MODE_RINGING:
                 border_visible = True
@@ -180,7 +206,7 @@ def main():
         if alarm.mode != MODE_RINGING:
             time_sync.poll()
 
-        year, month, day, _wd, hour, minute, second, _sub = rtc.datetime()
+        year, month, day, weekday, hour, minute, second, _sub = rtc.datetime()
 
         if alarm.mode == MODE_CLOCK:
             if alarm.check_ring((year, month, day, hour, minute, second)):
@@ -190,15 +216,27 @@ def main():
                 # doesn't touch the clock/date) still forces an immediate redraw.
                 minute_key = (year, month, day, hour, minute, alarm.enabled)
                 if minute_key != last_drawn_minute_key:
-                    display.show_clock(hour, minute, year, month, day, alarm_enabled=alarm.enabled)
+                    display.show_clock(hour, minute, year, month, day, weekday=weekday, alarm_enabled=alarm.enabled)
                     last_drawn_minute_key = minute_key
 
         elif alarm.mode == MODE_EDIT:
-            alarm.update_blink()
-            edit_state = (alarm.hour, alarm.minute, alarm.digit_index, alarm.blink_visible)
-            if edit_state != last_edit_state:
-                display.show_alarm_edit(*edit_state)
-                last_edit_state = edit_state
+            if alarm.edit_idle_expired():
+                alarm.exit_edit()
+            else:
+                alarm.update_blink()
+                edit_state = (alarm.hour, alarm.minute, alarm.digit_index, alarm.blink_visible)
+                if edit_state != last_edit_state:
+                    display.show_alarm_edit(*edit_state)
+                    last_edit_state = edit_state
+
+        elif alarm.mode == MODE_PREVIEW:
+            if alarm.preview_expired():
+                alarm.end_preview()
+            else:
+                preview_state = (alarm.hour, alarm.minute, alarm.enabled)
+                if preview_state != last_preview_state:
+                    display.show_alarm_preview(*preview_state)
+                    last_preview_state = preview_state
 
         elif alarm.mode == MODE_RINGING:
             buzzer.play_alarm_tune()
