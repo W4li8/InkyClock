@@ -113,3 +113,13 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   loose, re-seated, then heard clearly): 3 rising tones + sweep on GP22 via
   test/test_buzzer.py. Passive-piezo hardware path (PWM -> GP22 -> piezo ->
   GND) is now fully verified end to end, not just "ran with no errors."
+
+[2026-09-27 01:20] Ran test_display.py live (no errors, panel confirmed
+  296x128) -- visual confirmation of each of the 5 steps pending user's eyes
+  on the actual screen. Investigated internal RP2350 temp sensor
+  (machine.ADC(4)) per user question: works fine on this firmware (a known
+  MicroPython/RP2350 ADC(4) bug from ~2024 doesn't affect this build),
+  verified live (32.7C reading) -- but confirmed it's die temp, not room
+  temp (self-heating from CPU/USB reg), so not usable for the idea.txt
+  A/C-control idea. Noted in idea.txt. Board reset to standalone after both
+  tests.

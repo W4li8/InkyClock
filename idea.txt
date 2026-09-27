@@ -5,6 +5,13 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   IR-blaster or similar actuator for the A/C side and a motor or existing
   smart-blinds API for the blinds side -- bigger scope than the clock itself,
   parking here for later.
+  Confirmed on the actual board: the RP2350's built-in temp sensor
+  (machine.ADC(4)) works fine on this firmware (was briefly a known
+  MicroPython/RP2350 bug elsewhere, not an issue here) and reads live, but
+  it measures die temperature, not room temperature -- read 32.7C sitting on
+  a desk, heated by the CPU/USB regulator, with an offset that drifts with
+  board activity. Not usable for this idea; a real external I2C sensor
+  (BME280/SHT31) is still the right call.
 
 - Battery-backed external RTC module (DS3231 / PCF8523, I2C, coin-cell).
   The Pico has no battery-backed RTC (see conversation) -- it resets on
