@@ -1,5 +1,24 @@
 InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
 
+- Health check-in during each sync window, instead of trying to ping the
+  device (doesn't work -- see conversation: the radio is off ~99% of the
+  time by design, so an external ping only has a shot during the brief
+  sync burst itself, and even then only if the router reflects the DHCP
+  hostname into local DNS). Inverted approach: since Wi-Fi is already up
+  and connected during wifi.TimeSync's own sync window anyway (zero extra
+  radio-on cost), piggyback one more lightweight HTTP call there reporting
+  something like: last sync success/failure, current alarm hour/minute/
+  enabled, uptime since boot, free memory (gc.mem_free()). Natural fit for
+  a "dead man's switch" style service (healthchecks.io, cronitor, an
+  Uptime Kuma push endpoint, or a plain webhook) -- those work by having
+  the device check IN periodically and the SERVICE alerts if a check-in is
+  late/missing, which is exactly the shape of "does it wake up every 4h"
+  without needing the device reachable on-demand. Would slot in right next
+  to the existing wifi.py sync call (_attempt_once() or right after);
+  natural companion to the sleep-tracker idea and the Tailscale/
+  veteranserver idea above, if a destination server ends up existing for
+  either of those anyway.
+
 - Advertise this device's route over Tailscale from veteranserver, letting
   the server do the heavy lifting (time sync, API calls, maybe even the
   alarm-state logic) while the Pico is reduced to a thin/idle display+input
