@@ -2,6 +2,8 @@
 
 MicroPython alarm clock for a Pico 2 W + Pimoroni Pico Inky Pack. Shows a big 24h clock (+ date), syncs time over Wi-Fi every 4h, and has a long-press digit editor for the alarm.
 
+Parts/purchase list: [Amazon wishlist](https://www.amazon.com/hz/wishlist/ls/39OZA93EOQ4YB?ref_=wl_share)
+
 **Setup:** copy `src/secrets.example.py` → `src/secrets.py`, fill in your Wi-Fi creds, flash Pimoroni's MicroPython (`build/fetch_firmware.sh`, not stock MicroPython — see `docs/pico-inky-pack.md`), then `build/flash.sh` to deploy. `test/` has one independently-runnable check per `src/*.py` module (`test/README.md`) — worth running after any change, especially `test_pins`/`test_config`/`test_alarm` (no hardware needed) before bothering with the ones that need eyes/ears on the board.
 
 To modify... | see
