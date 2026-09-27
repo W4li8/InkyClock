@@ -48,3 +48,16 @@ Known limitations flagged in code comments (not fixed, by design/scope):
   table updated. Confirmed with user: /dev/tty.usbmodem1101 is the Pico 2 W
   (matches the usbmodem device detected earlier; the Inky Pack screen itself
   is not USB-visible and can't be detected that way regardless).
+
+[2026-09-26 23:37] Correction + done: investigated whether a button press
+  can wake machine.lightsleep() early on rp2 (user asked about long sleep +
+  timer wake + button wake). Verified against actual MicroPython source
+  (ports/rp2/modmachine.c, machine_pin.c) that it CANNOT -- timed
+  lightsleep(ms) gates off the GPIO/IO_BANK0 clock, and Pin.irq() has no
+  wake= param on this port. Corrected the earlier (wrong) claim I made in
+  chat. Implemented the honest version instead: config.IDLE_LIGHTSLEEP_S
+  (250ms) bounds the idle-mode lightsleep instead of sleeping until the next
+  minute; MAIN_LOOP_TICK_S (20ms) still used whenever editing/ringing/a
+  button is held/radio is active. Wrote up the full investigation +
+  citations in docs/low-power.md. idea.txt: added the sleep-schedule-tracker
+  feature (time-in-bed -> alarm-dismissed logged to a server).

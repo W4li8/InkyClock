@@ -7,6 +7,7 @@ Reference material pulled in while figuring out how to add an alarm buzzer to a 
 - [`buzzer-notes.md`](buzzer-notes.md) — active vs. passive buzzer, wiring, `machine.PWM` API, example code
 - [`debug-port-swd.md`](debug-port-swd.md) — what the 3-pin SWD debug header is/isn't for
 - [`time-sync.md`](time-sync.md) — how the 4h/T0/retry time-sync schedule works and why (epoch gotcha, blocking-vs-non-blocking)
+- [`low-power.md`](low-power.md) — Wi-Fi-off-between-syncs, and why a button press can't wake a timed `lightsleep()` on rp2 (source-verified)
 - [`pimoroni-examples/`](pimoroni-examples/) — official Pimoroni MicroPython examples for the Inky Pack (`button_test.py`, `clock.py`), copied from [pimoroni/pimoroni-pico](https://github.com/pimoroni/pimoroni-pico), useful as a starting point for the alarm UI
 - [`assets/`](assets/) — pinout diagrams rendered from the official Raspberry Pi Pico 2 W datasheet PDF
 - [`../src/pins.py`](../src/pins.py) — single source of truth for every pin assignment in this project (display, buttons, buzzer, free pins) — import from it instead of hardcoding GPIO numbers

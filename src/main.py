@@ -22,8 +22,12 @@ and poll_button()/ButtonState below.
 
 Low power: the main-loop tick uses machine.lightsleep() instead of a plain
 time.sleep() whenever the Wi-Fi radio is off (wifi.radio_active()), which is
-almost always -- see wifi.TimeSync's low-power note. The radio itself is
-only powered on for the few seconds/minutes around each 4h sync.
+almost always -- see wifi.TimeSync's low-power note; the radio itself is
+only powered on for the few seconds/minutes around each 4h sync. The idle
+tick (MODE_CLOCK, no button held) is bounded at config.IDLE_LIGHTSLEEP_S
+rather than sleeping until the next minute -- a button press can't wake a
+timed lightsleep() early on rp2 (see docs/low-power.md), so responsiveness
+comes from keeping that bound short, not from an interrupt.
 """
 
 import time
@@ -181,13 +185,24 @@ def main():
                 last_border_toggle_ticks = now_ms
                 display.flash_alarm_border(alarm.hour, alarm.minute, border_visible)
 
-        # Low power: lightsleep() halts the CPU instead of busy-waiting, but
-        # is best avoided while the Wi-Fi radio is mid-connection on some
-        # rp2 W-board firmware -- fall back to a plain sleep in that window
-        # (wifi.radio_active() is only True for the brief sync bursts).
-        tick_ms = int(config.MAIN_LOOP_TICK_S * 1000)
+        # Low power: lightsleep() halts the CPU instead of busy-waiting. Two
+        # further notes, see docs/low-power.md for the full detail:
+        #  - it's best avoided while the Wi-Fi radio is mid-connection on
+        #    some rp2 W-board firmware, so fall back to a plain sleep then
+        #    (wifi.radio_active() is only True for the brief sync bursts).
+        #  - a button press does NOT wake a timed lightsleep() early on rp2
+        #    (its GPIO clock is gated off during the sleep) -- so instead of
+        #    "sleep until next minute, interrupted by a button", idle ticks
+        #    are just bounded short enough (IDLE_LIGHTSLEEP_S) that a press
+        #    is always caught on the next wake regardless.
+        any_button_held = button_a.value() == 0 or button_b.value() == 0 or button_c.value() == 0
+        if alarm.mode == MODE_CLOCK and not any_button_held:
+            tick_ms = int(config.IDLE_LIGHTSLEEP_S * 1000)
+        else:
+            tick_ms = int(config.MAIN_LOOP_TICK_S * 1000)
+
         if wifi.radio_active():
-            time.sleep_ms(tick_ms)
+            time.sleep_ms(int(config.MAIN_LOOP_TICK_S * 1000))
         else:
             machine.lightsleep(tick_ms)
 

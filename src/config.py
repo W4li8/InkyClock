@@ -30,4 +30,6 @@ ALARM_RING_FLASH_HZ = 2         # requested border-flash rate; see display.py
                                  # docstring for why e-ink won't quite hit this
 
 # --- Main loop -------------------------------------------------------------
-MAIN_LOOP_TICK_S = 0.02         # button-polling resolution
+MAIN_LOOP_TICK_S = 0.02         # active tick: editing, ringing, radio on, or a button currently held
+IDLE_LIGHTSLEEP_S = 0.25        # idle tick: MODE_CLOCK, nothing held, radio off -- see docs/low-power.md
+                                 # for why this can't just be "sleep until next minute, wake on button"

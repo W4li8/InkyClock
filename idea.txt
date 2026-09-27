@@ -34,3 +34,15 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   for the tactile switches on the Inky Pack, but worth a real debounce
   (e.g. requiring N consecutive stable reads) if double-triggers ever show
   up in practice.
+
+- Sleep schedule tracker: log "time in bed" (some detectable start event --
+  maybe a light/motion sensor, or just "alarm was set"/last-button-press-
+  before-morning) through "time alarm dismissed" each night, sent somewhere
+  off-device (a small server / cloud endpoint) so trends are visible over
+  time instead of living only in the Pico's own limited storage. Needs:
+  a defined "went to bed" signal (the tricky part -- the clock only really
+  knows when the *alarm* starts and stops, not when you actually lay down),
+  a server/endpoint to POST to (could piggyback on the same Wi-Fi connect
+  wifi.py already does for time sync), and local buffering for the (fairly
+  likely) case the server or Wi-Fi is unreachable right when the alarm gets
+  dismissed.
