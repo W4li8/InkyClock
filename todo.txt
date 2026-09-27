@@ -108,3 +108,8 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   actual audible confirmation is pending the user's own ears, noted clearly
   since there's no microphone on this end. Board reset back to standalone
   main.py afterward.
+
+[2026-09-27 01:16] Buzzer audibly confirmed by user (initial connection was
+  loose, re-seated, then heard clearly): 3 rising tones + sweep on GP22 via
+  test/test_buzzer.py. Passive-piezo hardware path (PWM -> GP22 -> piezo ->
+  GND) is now fully verified end to end, not just "ran with no errors."
