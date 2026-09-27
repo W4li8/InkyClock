@@ -297,3 +297,44 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   - Fresh clean reset + logger restarted, left running untouched. Next
     check will use .debug/overnight.log directly instead of re-deriving
     from scratch.
+
+[2026-09-27 12:18] State-machine gap review (none fixed yet -- design
+  decisions needed, not obvious bugs -- flagging here for later):
+
+  1. No ringing timeout. If MODE_RINGING is never dismissed, buzzer.
+     play_alarm_tune() and the border flash run forever, and
+     time_sync.poll() stays paused the whole time (explicitly skipped
+     during MODE_RINGING so a resync can't delay dismissal). No "give up
+     after N minutes" exists.
+
+  2. No persistence across reboot/power-loss. Alarm() is a fresh instance
+     every main() run -- a crash or power cycle silently resets
+     hour/minute/enabled back to config.DEFAULT_ALARM_HOUR/MINUTE
+     (7:00, enabled=True), discarding whatever the user actually set, with
+     no indication anything changed. Doesn't need extra hardware to fix --
+     the Pico's onboard 2MB QSPI flash already hosts the MicroPython
+     filesystem (same flash main.py lives on); persisting just means
+     writing a small state file (e.g. one-line JSON: hour/minute/enabled)
+     on actual change (exit_edit, toggle_enabled) and reading it back at
+     boot with a try/except fallback to config defaults if missing/corrupt
+     (first boot, or a write interrupted mid-write). Flash write endurance
+     (~100k erases/sector, wear-levelled by the filesystem) is a non-issue
+     at alarm-editing frequency.
+
+  3. Resync can jump forward across the alarm's exact target minute.
+     check_ring() needs an exact (hh, mm) match with no memory of "did I
+     already pass this" -- if a scheduled or boot resync corrects the RTC
+     forward across the alarm's minute (e.g. 6:58 -> corrected to 7:03),
+     that day's alarm is silently skipped. Same failure family as #4
+     below, different trigger (a resync jump instead of user interaction).
+
+  4. check_ring() only runs in MODE_CLOCK -- already known re: MODE_EDIT
+     (up to ALARM_EDIT_TIMEOUT_S+ exposure), but also applies to
+     MODE_PREVIEW (much smaller, max ~3s exposure) which wasn't previously
+     called out explicitly.
+
+  Minor, not really "gaps": a resync due on the exact same tick as the
+  alarm firing delays ring start by a few seconds (time_sync.poll() runs
+  first in the loop each iteration) -- latency, not a miss. RTC weekday
+  auto-increment between resyncs is trusted hardware behavior, not
+  independently verified -- self-corrects within 4h regardless if wrong.
