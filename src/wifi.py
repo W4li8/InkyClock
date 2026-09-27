@@ -2,9 +2,15 @@
 wifi.py -- wireless connection access: joining Wi-Fi, and the periodic
 time-sync HTTP call that keeps machine.RTC() close to real time.
 
-To point this at a different time API or change the sync schedule, see
-config.py (TIME_API_URL, SYNC_* constants). To change Wi-Fi credentials,
-edit secrets.py (copy secrets.example.py first -- secrets.py is gitignored).
+Uses timeapi.io's fixed-timezone endpoint (config.TIME_API_URL) -- switched
+from worldtimeapi.org (the original choice) after confirming it's actually
+down: unreachable over both HTTP and HTTPS from two different networks
+during hardware bring-up, see docs/time-sync.md. _fetch_local_datetime()
+below parses timeapi.io's schema (plain year/month/day/hour/minute/seconds
+fields, already local time for the configured zone -- no epoch math needed).
+To change the timezone or point this at yet another API, see config.py
+(TIME_API_URL, SYNC_* constants). To change Wi-Fi credentials, edit
+secrets.py (copy secrets.example.py first -- secrets.py is gitignored).
 """
 
 import time
@@ -19,9 +25,10 @@ try:
 except ImportError:
     requests = None  # sync attempts fail cleanly (see _fetch_local_datetime) if the lib isn't installed
 
-# Seconds between the Unix epoch (1970-01-01, what time APIs return) and the
-# MicroPython epoch (2000-01-01, what time.localtime()/machine.RTC() use).
-_UNIX_TO_MPY_EPOCH = 946684800
+_WEEKDAY_FROM_NAME = {
+    "Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
+    "Friday": 4, "Saturday": 5, "Sunday": 6,
+}
 
 
 def connect(timeout_s=None):
@@ -119,14 +126,13 @@ class TimeSync:
             r.close()
 
         try:
-            unix_utc = int(data["unixtime"])
-            offset_str = data["utc_offset"]  # e.g. "+02:00"
-            sign = 1 if offset_str[0] == "+" else -1
-            off_h, off_m = offset_str[1:].split(":")
-            offset_s = sign * (int(off_h) * 3600 + int(off_m) * 60)
-            local_unix = unix_utc + offset_s
-            mpy_epoch_time = local_unix - _UNIX_TO_MPY_EPOCH
-            y, mo, d, hh, mm, ss, wd, _yday = time.localtime(mpy_epoch_time)
+            y = int(data["year"])
+            mo = int(data["month"])
+            d = int(data["day"])
+            hh = int(data["hour"])
+            mm = int(data["minute"])
+            ss = int(data["seconds"])
+            wd = _WEEKDAY_FROM_NAME.get(data.get("dayOfWeek"), 0)
             return (y, mo, d, wd, hh, mm, ss)
         except Exception as exc:
             print("[wifi] time API response missing expected fields:", exc)

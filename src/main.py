@@ -32,12 +32,13 @@ comes from keeping that bound short, not from an interrupt.
 Heartbeat: the onboard LED ("LED" pin -- on a *_W board this is wired
 through the CYW43 wireless chip, not a plain GPIO, but works fine even with
 Wi-Fi off, confirmed live: toggling it after wlan.active(False) still
-worked) blinks at config.HEARTBEAT_HZ in every mode, as a simple "the board
-is powered and the loop hasn't hung" indicator. Implemented as a genuine
-wall-clock toggle (every 1000/(HEARTBEAT_HZ*2) ms) rather than "toggle every
-other loop iteration" -- the loop's own iteration rate already varies by
-mode (20ms active / 250ms idle, see above), so counting iterations wouldn't
-give a consistent, mode-independent Hz.
+worked) blinks in every mode as a "the board is powered and the loop hasn't
+hung" indicator, and doubles as a Wi-Fi status light: config.HEARTBEAT_WIFI_HZ
+(fast) while wifi.radio_active(), config.HEARTBEAT_IDLE_HZ (slow) otherwise.
+Implemented as a genuine wall-clock toggle rather than "toggle every other
+loop iteration" -- the loop's own iteration rate already varies by mode
+(20ms active / 250ms idle, see above), so counting iterations wouldn't give
+a consistent Hz independent of that.
 """
 
 import time
@@ -102,7 +103,6 @@ def main():
     led = machine.Pin("LED", machine.Pin.OUT)  # onboard LED, see module docstring
     led_on = False
     last_led_toggle_ticks = time.ticks_ms()
-    heartbeat_toggle_ms = int(1000 / (config.HEARTBEAT_HZ * 2))
 
     def a_short():
         if alarm.mode == MODE_EDIT:
@@ -157,8 +157,10 @@ def main():
         poll_button(state_c, short_press_cb=c_short, long_press_cb=c_long,
                     long_press_s=config.ALARM_LONG_PRESS_S)
 
-        # Power-on heartbeat: see module docstring for why this is wall-clock
-        # timed rather than toggled once per loop iteration.
+        # Power-on heartbeat / Wi-Fi status light: see module docstring for
+        # why this is wall-clock timed rather than toggled per loop iteration.
+        heartbeat_hz = config.HEARTBEAT_WIFI_HZ if wifi.radio_active() else config.HEARTBEAT_IDLE_HZ
+        heartbeat_toggle_ms = int(1000 / (heartbeat_hz * 2))
         if time.ticks_diff(time.ticks_ms(), last_led_toggle_ticks) >= heartbeat_toggle_ms:
             led_on = not led_on
             led.value(led_on)

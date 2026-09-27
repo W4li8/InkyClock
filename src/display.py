@@ -34,15 +34,22 @@ class InkyDisplay:
         self.graphics.set_font(FONT)
 
     # -- low level helpers ----------------------------------------------
-    def _fit_scale(self, text, max_w, max_h, max_scale=20, min_scale=1, step=0.5):
-        """Largest scale for `text` that fits inside max_w x max_h."""
+    def _fit_scale(self, text, max_w, max_h, max_scale=20, min_scale=1):
+        """
+        Largest INTEGER scale for `text` that fits inside max_w x max_h.
+        Integer only, not just for a coarser-but-fine visual step: confirmed
+        on real hardware that PicoGraphics.text() raises TypeError on a
+        float scale, even though measure_text() silently accepts one --
+        searching in integer steps keeps the width used here (for centering)
+        consistent with what actually gets rendered.
+        """
         scale = max_scale
         while scale > min_scale:
             w = self.graphics.measure_text(text, scale)
             h_est = FONT_CELL_PX * scale
             if w <= max_w and h_est <= max_h:
                 return scale
-            scale -= step
+            scale -= 1
         return min_scale
 
     def _clear(self):

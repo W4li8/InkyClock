@@ -6,12 +6,14 @@ secrets.example.py for the template.
 """
 
 # --- Time sync ---------------------------------------------------------
-# Any endpoint returning JSON with "unixtime" (UTC epoch seconds) and
-# "utc_offset" (e.g. "+02:00") works with wifi.py's parser as-is.
-# worldtimeapi.org auto-detects timezone from the caller's public IP; pin a
-# fixed zone instead if you don't want that (see docs/time-sync.md).
-TIME_API_URL = "http://worldtimeapi.org/api/ip"
-# TIME_API_URL = "http://worldtimeapi.org/api/timezone/Europe/Prague"
+# timeapi.io's fixed-timezone endpoint -- change "timeZone=" to your own IANA
+# zone name. (worldtimeapi.org, the original pick, was confirmed dead during
+# hardware bring-up -- see docs/time-sync.md. This endpoint needs a fixed
+# zone rather than auto-detecting from IP, which is a fine trade: this
+# project already resyncs every 4h regardless.) wifi.py's parser expects
+# timeapi.io's schema (plain year/month/day/hour/minute/seconds fields) --
+# swapping providers means updating that parser too.
+TIME_API_URL = "https://timeapi.io/api/time/current/zone?timeZone=America/Los_Angeles"
 
 SYNC_INTERVAL_S = 4 * 60 * 60   # resync every 4 hours
 SYNC_T0_HOUR = 1                 # first resync slot of the day: 01:23, then
@@ -35,4 +37,7 @@ IDLE_LIGHTSLEEP_S = 0.25        # idle tick: MODE_CLOCK, nothing held, radio off
                                  # for why this can't just be "sleep until next minute, wake on button"
 
 # --- Power-on heartbeat -----------------------------------------------------
-HEARTBEAT_HZ = 2                 # onboard LED blink rate, all modes -- "power is on" indicator
+# Doubles as a live Wi-Fi-status indicator: fast while connected/syncing,
+# slow the rest of the time (idle, radio off, ticking along in light sleep).
+HEARTBEAT_WIFI_HZ = 5             # blink rate while wifi.radio_active()
+HEARTBEAT_IDLE_HZ = 0.5           # blink rate otherwise

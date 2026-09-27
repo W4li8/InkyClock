@@ -4,11 +4,17 @@ How `src/wifi.py` keeps `machine.RTC()` accurate, and why it's built the way it 
 
 ## Why an API instead of plain NTP
 
-Plain NTP gives you UTC only — you'd still need to know the local UTC offset (and DST rules) yourself. Since the ask was "pull from a source that adjusts timezone," this project calls **[worldtimeapi.org](http://worldtimeapi.org/api/ip)** instead: `GET /api/ip` auto-detects timezone from the caller's public IP and returns both `unixtime` (UTC epoch) and `utc_offset` (e.g. `"+02:00"`), so the DST/timezone math is done server-side. Swap `config.TIME_API_URL` to `.../api/timezone/Area/City` to pin a fixed zone instead of IP geolocation, or point it at a different API/your own server — `wifi.py`'s parser just needs those same two JSON fields.
+Plain NTP gives you UTC only — you'd still need to know the local UTC offset (and DST rules) yourself. Since the ask was "pull from a source that adjusts timezone," this project calls a time API instead, one that does the DST/timezone math server-side.
 
-## The epoch gotcha
+**Originally worldtimeapi.org, switched to [timeapi.io](https://timeapi.io) during hardware bring-up.** worldtimeapi.org's `/api/ip` was the initial pick (auto-detects timezone from the caller's public IP, no zone to configure) — but during actual board testing it turned out to be **dead**: unreachable over both HTTP and HTTPS, confirmed from two independent networks (curl gave connection errors on both, while DNS still resolved and every other site worked fine). Long-known reliability problems with that free community service, apparently terminal by 2026.
 
-The API returns a standard **Unix** epoch (seconds since 1970-01-01). MicroPython's `time.localtime()` / `machine.RTC()` use the **MicroPython epoch** (2000-01-01) on most ports, including rp2. `wifi.py` subtracts the 946684800-second difference (`_UNIX_TO_MPY_EPOCH`) before converting — easy to get wrong if you ever touch that code, so it's called out explicitly there and here.
+`config.TIME_API_URL` now points at `https://timeapi.io/api/time/current/zone?timeZone=America/Los_Angeles` — a fixed-zone endpoint (change the `timeZone=` query param to your own [IANA zone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). No IP-geolocation auto-detect this time around, but that's a fine trade: this project already resyncs every 4 hours regardless, so pinning a zone costs nothing in practice. Confirmed live on the actual board: `urequests` on this firmware handles HTTPS (not just HTTP) fine, so the switch from `http://` to `https://` needed no other changes.
+
+If you swap providers again, `wifi.py`'s `_fetch_local_datetime()` parser needs updating to match — it's provider-schema-specific, not generic.
+
+## No epoch math needed (this API returns broken-down local time directly)
+
+timeapi.io's response is already local time for the requested zone, broken into plain `year`/`month`/`day`/`hour`/`minute`/`seconds` fields (plus a `dayOfWeek` name, mapped to an int via `_WEEKDAY_FROM_NAME` in `wifi.py`) — no Unix-epoch-to-MicroPython-epoch conversion required, unlike the old worldtimeapi.org integration. One less gotcha to get wrong.
 
 ## Schedule: T0-anchored, 4-hourly, capped retries
 

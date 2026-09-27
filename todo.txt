@@ -61,3 +61,35 @@ Known limitations flagged in code comments (not fixed, by design/scope):
   button is held/radio is active. Wrote up the full investigation +
   citations in docs/low-power.md. idea.txt: added the sleep-schedule-tracker
   feature (time-in-bed -> alarm-dismissed logged to a server).
+
+[2026-09-27 00:04] First real hardware bring-up on the connected Pico 2 W
+  (/dev/tty.usbmodem1101). Found and fixed 3 real bugs code review didn't
+  catch:
+  1. Board was running stock RPI_PICO2_W MicroPython, not Pimoroni's build
+     -- picographics/pimoroni modules absent. Flashed
+     rpi_pico2_w-v1.29.0-micropython.uf2 from pimoroni-pico-rp2350 (remotely,
+     via `mpremote bootloader` + copying the uf2 to the RP2350 mass-storage
+     drive that appears -- no physical BOOTSEL press needed).
+  2. secrets.py had a Wi-Fi SSID typo ("NETGEAR_07" vs actual "NETGEAR07",
+     found via wlan.scan() on-device). Fixed locally (not committed, per
+     .gitignore).
+  3. worldtimeapi.org (original time API) is dead -- confirmed unreachable
+     over HTTP and HTTPS from two networks. Switched to timeapi.io's
+     fixed-timezone endpoint; rewrote wifi.py's parser for its schema
+     (simpler -- no epoch math needed). docs/time-sync.md updated.
+  4. display.py's _fit_scale() returned float scales (step=0.5);
+     PicoGraphics.text() on real hardware raises TypeError on a float scale
+     even though measure_text() silently accepts one. Fixed to integer-only
+     steps so centering math stays consistent with what's actually rendered.
+  After all 4 fixes: full boot (Wi-Fi connect, time sync, RTC set, first
+  clock draw) ran with no traceback. Also added and live-verified: onboard
+  LED heartbeat (machine.Pin("LED"), confirmed working even after
+  wlan.active(False)) at config.HEARTBEAT_WIFI_HZ (5Hz, connected) /
+  HEARTBEAT_IDLE_HZ (0.5Hz, idle). build/fetch_firmware.sh and build/flash.sh
+  added (deploy script now used for the real deploy). Board left running
+  standalone off main.py after a final clean reset -- visual confirmation
+  (screen contents, button presses) needs the user's own eyes from here,
+  no camera on this end.
+
+Known-good baseline as of this entry: firmware v1.29.0 (Pimoroni), all
+src/*.py on-device, secrets.py corrected locally, board running unattended.
