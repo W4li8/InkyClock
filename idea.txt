@@ -48,33 +48,16 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   board activity. Not usable for this idea; a real external I2C sensor
   (BME280/SHT31) is still the right call.
 
-- Battery-backed external RTC module (DS3231 / PCF8523, I2C, coin-cell).
-  The Pico has no battery-backed RTC (see conversation) -- it resets on
-  every power loss and only gets corrected again once wifi.TimeSync
-  succeeds. An external RTC would survive outages and give a sane baseline
-  immediately at boot even before/without a successful Wi-Fi sync.
-  Prefer PCF8523 over DS3231 -- lower backup current, and most PCF8523
-  breakout boards skip the trickle-charge circuit that some cheap DS3231
-  boards wire in for a rechargeable cell (which degrades/damages a normal
-  non-rechargeable CR2032 if left in place -- check for it either way).
-  Whichever chip: expect to swap the CR2032 every 5-10 years -- that's the
-  battery's own shelf life, not something the RTC's ~1-3uA draw limits.
-  Note: this is unrelated to (and not a fix for) the lightsleep/RTC-freeze
-  bug in docs/low-power.md -- that was the RP2350's internal RTC misbehaving
-  while the board is powered and running; an external RTC module only
-  helps across an actual power-loss, which no internal-RTC fix (lightsleep
-  or otherwise) can address regardless.
-
-- UPS (uninterruptible power supply) module for seamless switchover on
-  power loss -- e.g. a small LiPo + charge/boost circuit (many off-the-shelf
-  "UPS HAT" style boards for this exist) that keeps the Pico continuously
-  powered through a mains/USB outage instead of just recovering gracefully
-  after one. Stronger than the RTC-module idea above or flash-persisted
-  alarm settings: those two help the clock come back correctly after an
-  outage, a UPS keeps it actually running (alarm still fires, display still
-  updates) *through* one. The three ideas are complementary, not
-  alternatives -- a real "keeps working no matter what" clock would
-  plausibly want all three eventually.
+- [ABANDONED, see docs/time-accuracy-decision.md] Battery-backed external
+  RTC module and UPS module were both parked here and have now been
+  explicitly dropped, not just left unscheduled -- the 4h sync + crystal
+  drift between syncs + persist.py's 10-min flash checkpoint already meet
+  the project's stated reliability target (don't miss the alarm by more
+  than ~10 min on normal home mains power) with wide margin, using
+  hardware already on the board. See the decision doc for the actual
+  numbers (crystal drift is sub-2-minutes even after a full week of
+  failed syncs; home-grid outage statistics) behind why neither is worth
+  the added cost/complexity.
 
 - Snooze button. Right now any press during MODE_RINGING just dismisses
   (alarm.stop_ringing() in main.py); there's no separate "quiet for N
@@ -102,8 +85,10 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   Wi-Fi/the router also down doesn't miss the alarm outright -- implemented
   as src/persist.py + wifi.TimeSync.restore_from_flash/maybe_checkpoint.
   Bounds the gap to ~config.PERSIST_CHECKPOINT_S (10 min) for a BRIEF
-  outage only -- doesn't track elapsed time while genuinely powered off,
-  so a longer outage still needs the RTC-module/UPS ideas above.
+  outage only -- doesn't track elapsed time while genuinely powered off.
+  A longer outage is not addressed further on purpose -- see
+  docs/time-accuracy-decision.md for why an RTC module/UPS aren't worth
+  adding to close that gap.
 
 - Real CPU-idle power savings during MODE_CLOCK, done properly this time.
   time.sleep_ms() (see docs/low-power.md) doesn't halt the CPU the way

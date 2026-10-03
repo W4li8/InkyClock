@@ -8,6 +8,7 @@ Reference material pulled in while figuring out how to add an alarm buzzer to a 
 - [`debug-port-swd.md`](debug-port-swd.md) — what the 3-pin SWD debug header is/isn't for
 - [`time-sync.md`](time-sync.md) — how the 4h/T0/retry time-sync schedule works, why worldtimeapi.org got dropped for timeapi.io, blocking-vs-non-blocking
 - [`low-power.md`](low-power.md) — Wi-Fi-off-between-syncs (the real win); why `machine.lightsleep()` was tried and then dropped entirely — it freezes `machine.RTC()`, confirmed live, the actual root cause behind a lot of this project's "clock stopped" debugging
+- [`time-accuracy-decision.md`](time-accuracy-decision.md) — why a battery-backed RTC and a UPS were both considered and dropped, with the actual drift/outage numbers behind that call
 - [`pimoroni-examples/`](pimoroni-examples/) — official Pimoroni MicroPython examples for the Inky Pack (`button_test.py`, `clock.py`), copied from [pimoroni/pimoroni-pico](https://github.com/pimoroni/pimoroni-pico), useful as a starting point for the alarm UI
 - [`assets/`](assets/) — pinout diagrams rendered from the official Raspberry Pi Pico 2 W datasheet PDF
 - [`../src/pins.py`](../src/pins.py) — single source of truth for every pin assignment in this project (display, buttons, buzzer, free pins) — import from it instead of hardcoding GPIO numbers

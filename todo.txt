@@ -31,8 +31,10 @@ Known limitations flagged in code comments (not fixed, by design/scope):
   it won't fire that day (check_ring only runs in MODE_CLOCK).
 - buzzer.py: once a real multi-note tune is written, tone() calls block, so
   the ring loop's button responsiveness during playback will need revisiting.
-- No battery-backed RTC (see idea.txt) - boot with Wi-Fi down leaves clock
-  wrong until network recovers, no offline fallback.
+- No battery-backed RTC - boot with Wi-Fi down leaves clock wrong until
+  network recovers. Since mitigated by persist.py's flash checkpoint
+  (10-min bound) and the battery-backed-RTC/UPS hardware ideas were
+  explicitly abandoned as unnecessary -- see docs/time-accuracy-decision.md.
 - display.py layout constants (FONT_CELL_PX etc.) are computed dynamically
   where possible but the height estimate is nominal -- untested on real
   hardware, may need a tweak once flashed to an actual Inky Pack.
@@ -513,3 +515,19 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
     original weak-ramp behavior.
   - docs/buzzer-notes.md updated with the full explanation and the new
     CLASSIC_VOLUME/_tone_advanced() section.
+
+[2026-10-02 23:30] Decided against (not just deferred) the battery-backed
+  RTC and UPS hardware ideas from idea.txt, per user request.
+
+  Reasoning, with numbers, now in docs/time-accuracy-decision.md: crystal
+  drift between 4h syncs is sub-2-second even over a full day of entirely
+  failed syncs, and sub-2-minute even over a full week of them -- nowhere
+  close to the stated 10-min alarm-miss budget. The only real risk is an
+  actual power outage, and that's already bounded by two things built
+  this session: boot-time resync-before-anything-else, and persist.py's
+  10-min flash checkpoint (built specifically to hit this exact target).
+  A UPS only helps through outages long enough that the home router/modem
+  would be down too anyway (making Wi-Fi resync moot regardless of Pico
+  power); an RTC would only improve on a 10-min target already met.
+  idea.txt's RTC/UPS bullets replaced with a pointer to the decision doc;
+  docs/README.md indexed.
