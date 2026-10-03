@@ -462,3 +462,28 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   in current "single" wiring, then (once/if the piezo is physically moved
   to GP8/GP9) flip WIRING_MODE to "bridge" and re-test the QUIET/LOUD tiers
   for real.
+
+[2026-10-02 23:12] Buzzer physically re-soldered to GP8/GP9 (bridge mode).
+  Fixed a real bug in tools/serial_logger.py first, per user's correct
+  suspicion: the original version logged one "retrying in 2s" line per
+  2-second retry attempt with no state tracking -- across the real
+  multi-day gap recorded in .debug/overnight.log (board unreachable
+  2026-09-27 to 2026-10-02), that was 24,669 near-identical lines, 99% of
+  the entire log, with no way to tell "how long was it actually down"
+  without manually diffing timestamps across thousands of lines. Rewrote
+  to track disconnected_since: log once on the transition to disconnected,
+  a "still down, unreachable for X" summary at most every 5 min while it
+  stays down, and "RECONNECTED after X" with a clean, human-readable
+  duration (datetime.timedelta formatting, e.g. "5 days, 11:56:40") on
+  reconnect -- still retries every 2s internally (quick to notice when the
+  board comes back), just doesn't log every single attempt anymore.
+  Confirmed live immediately after: the brief USB re-enumeration blip from
+  a normal `mpremote reset` produced exactly one DISCONNECTED line and one
+  "RECONNECTED after 0:00:02" line, not a spam burst.
+
+  src/buzzer.py: WIRING_MODE flipped "single" -> "bridge" (piezo now
+  actually wired to GP8/GP9). Ran the requested ramp test (QUIET tier
+  volume 0.1->1.0 in 7 steps, then LOUD tier same ramp) -- executed with
+  no errors, tier switch engaged correctly mid-test. Audible confirmation
+  was pending when the user found a missing solder joint and paused to
+  re-solder -- re-test once they're back.

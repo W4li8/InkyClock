@@ -22,9 +22,8 @@ leads to match, see the mode descriptions.
       for why that pairing specifically (not just "any two pins") is what
       makes this phase-locked without any software timing tricks.
 
-Still "single" here because that's what's physically wired up right now,
-confirmed working with test/test_buzzer.py. Flip WIRING_MODE to "bridge"
-only after actually moving the piezo's leads from GP22/GND to GP8/GP9.
+Now "bridge" -- piezo re-soldered to GP8/GP9 as of 2026-10-02 (was "single"
+on GP22/GND before that, see git history if reverting).
 
 play_alarm_tune() still plays only a placeholder two-tone chime -- fill in
 a real tune there when you want one; main.py needs no changes either way.
@@ -38,7 +37,7 @@ from machine import Pin, PWM
 import pins
 
 BUZZER_CONNECTED = True   # piezo is physically wired up at all -- flip to False if unplugged
-WIRING_MODE = "single"    # "single" (pins.BUZZER/GND) or "bridge" (pins.BUZZER_BRIDGE_A/_B) -- see module docstring
+WIRING_MODE = "bridge"    # "single" (pins.BUZZER/GND) or "bridge" (pins.BUZZER_BRIDGE_A/_B) -- see module docstring
 
 QUIET = "quiet"
 LOUD = "loud"
