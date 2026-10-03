@@ -56,17 +56,17 @@ BUZZER = 22
 # Optional louder bridge-tied (BTL) drive: same-slice PWM channel pair driven
 # in antiphase across the piezo for ~2x voltage swing (+6 dB). Use this PAIR
 # instead of BUZZER above, not in addition to it, for the same physical piezo.
-BUZZER_BRIDGE_A = 2  # PWM slice 1, channel A -- normal phase
-BUZZER_BRIDGE_B = 3  # PWM slice 1, channel B -- invert=True in software
-# GP2/GP3 are physically adjacent (header pins 4 & 5) with a GND right next
-# to them at pin 3, and don't collide with the default UART0 console on
+BUZZER_BRIDGE_A = 8  # PWM slice 4, channel A -- normal phase
+BUZZER_BRIDGE_B = 9  # PWM slice 4, channel B -- invert=True in software
+# GP8/GP9 are physically adjacent (header pins 11 & 12) with a GND right
+# after them at pin 13, and don't collide with the default UART0 console on
 # GP0/GP1. See docs/buzzer-notes.md for the wiring/code.
 
 # ---------------------------------------------------------------------------
 # Genuinely free for anything else (RTC via I2C, light/battery sensor, etc.)
 # ---------------------------------------------------------------------------
-FREE_PINS = (0, 1, 4, 5, 6, 7, 8, 9, 16, 27, 28)
+FREE_PINS = (0, 1, 2, 3, 4, 5, 6, 7, 16, 27, 28)
 # GP0/GP1 default to UART0 TX/RX (USB-serial REPL) -- fine to reuse, but you
 # lose the hardware UART console if you do.
 # GP27/GP28 double as ADC1/ADC2 if you want an analog sensor later.
-# (GP2/GP3 are free too if you skip the bridge-tied buzzer wiring above.)
+# (GP8/GP9 are free too if you skip the bridge-tied buzzer wiring above.)

@@ -16,7 +16,7 @@ Reference material pulled in while figuring out how to add an alarm buzzer to a 
 
 - Inky Pack has no speaker/buzzer — add an external passive piezo buzzer (and/or an I2S amp for real audio).
 - Recommended pin: **GP22** (free, own PWM slice, right next to a GND pad) — see `src/pins.py`.
-- Want it louder for free? Bridge-tie it across **GP2 + GP3** (same PWM slice, hardware-synced antiphase) — see `buzzer-notes.md`.
+- Want it louder for free? Bridge-tie it across **GP8 + GP9** (same PWM slice, hardware-synced antiphase) — see `buzzer-notes.md`.
 - Inky Pack uses GP12/13/14 (buttons) and GP17–21 + GP26 (display SPI/DC/RESET/BUSY) — avoid those.
 - Pico 2 W's wireless chip claims GP23/24/25/29 internally — not available on the header at all.
 - The 3-pin debug header (SWCLK/GND/SWDIO) is dedicated SWD silicon, not GPIO — can't drive anything, only useful for a hardware debug probe.

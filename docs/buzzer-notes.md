@@ -16,7 +16,7 @@
 ## Wiring
 
 - **Passive piezo** (high impedance): straight across GP22 → GND. Draws a few mA, well within a GPIO's ~12 mA safe limit.
-- **Louder without extra parts** — bridge-tied drive across `BUZZER_BRIDGE_A`/`BUZZER_BRIDGE_B` (GP2/GP3) — see [Bridge-tied (BTL) drive](#bridge-tied-btl-drive-for-more-volume) below.
+- **Louder without extra parts** — bridge-tied drive across `BUZZER_BRIDGE_A`/`BUZZER_BRIDGE_B` (GP8/GP9) — see [Bridge-tied (BTL) drive](#bridge-tied-btl-drive-for-more-volume) below.
 - **Passive magnetic/coil buzzer** (low impedance, 16–42 Ω): needs a transistor (BC337, 2N3904, or small logic-level MOSFET) to switch it, base/gate driven from the GPIO through a resistor, plus a flyback diode (1N4148 or similar) across the coil to protect the transistor.
 - **Real audio instead of beeps**: an I2S DAC/amp module (e.g. MAX98357A) — see [I2S amp vs. PWM-on-piezo](#i2s-amp-vs-pwm-on-piezo-for-actual-audio) below.
 
@@ -66,14 +66,14 @@ The RP2350 (and RP2040) PWM hardware is organized as slices, each with two chann
 
 That's exactly what a bridge-tied (BTL) buzzer drive wants: put the piezo across two same-slice pins, set one channel's output inverted relative to the other, and the piezo sees roughly double the peak-to-peak voltage swing of a single pin (~+6 dB), for free, with only one extra jumper wire.
 
-**Which GPIOs share a slice:** `slice = (gpio >> 1) & 7`, `channel = gpio & 1` (even = A, odd = B) — so consecutive pin pairs `(0,1)`, `(2,3)`, `(4,5)`, `(6,7)`, `(8,9)`, … are always slice-mates. On this project's free-pin list, **GP2 (slice 1, channel A) + GP3 (slice 1, channel B)** is the cleanest pair: both free, physically adjacent (header pins 4 & 5), a GND sits right next to them at pin 3, and neither collides with the default UART0 console on GP0/GP1. These are `BUZZER_BRIDGE_A`/`BUZZER_BRIDGE_B` in [`src/pins.py`](../src/pins.py).
+**Which GPIOs share a slice:** `slice = (gpio >> 1) & 7`, `channel = gpio & 1` (even = A, odd = B) — so consecutive pin pairs `(0,1)`, `(2,3)`, `(4,5)`, `(6,7)`, `(8,9)`, … are always slice-mates. **GP8 (slice 4, channel A) + GP9 (slice 4, channel B)** is this project's pick: both free, physically adjacent (header pins 11 & 12), a GND sits right after them at pin 13, and neither collides with the default UART0 console on GP0/GP1. (GP2/GP3, slice 1, would work exactly the same way — any same-slice pair does — GP8/GP9 was just the one chosen here.) These are `BUZZER_BRIDGE_A`/`BUZZER_BRIDGE_B` in [`src/pins.py`](../src/pins.py).
 
 ```python
 from machine import Pin, PWM
 import time
 
-pwm_a = PWM(Pin(2))                    # BUZZER_BRIDGE_A
-pwm_b = PWM(Pin(3), invert=True)       # BUZZER_BRIDGE_B, antiphase
+pwm_a = PWM(Pin(8))                    # BUZZER_BRIDGE_A
+pwm_b = PWM(Pin(9), invert=True)       # BUZZER_BRIDGE_B, antiphase
 
 def tone(freq, ms, vol=0.3):
     duty = int(32768 * vol)
@@ -87,7 +87,17 @@ def tone(freq, ms, vol=0.3):
 tone(784, 150)
 ```
 
-Wire the piezo across GP2 and GP3 directly (no GND connection needed for the piezo itself in this mode — it floats between the two driven pins). Only use this **or** the single-pin `BUZZER` (GP22) hookup with a given physical buzzer, not both at once.
+Wire the piezo across GP8 and GP9 directly (no GND connection needed for the piezo itself in this mode — it floats between the two driven pins). Only use this **or** the single-pin `BUZZER` (GP22) hookup with a given physical buzzer, not both at once.
+
+**No pin ever goes negative.** GP8 and GP9 are each ordinary 0–3.3V push-pull outputs, both referenced to the same board GND, which never moves. The "double swing" is a *differential* quantity — what the floating piezo (connected to neither GND) experiences as the difference between its two leads — not a negative voltage appearing anywhere relative to GND. Probing GP8 or GP9 against board GND with a scope would show a plain 0–3.3V square wave on each, same as the single-pin hookup; only the piezo itself, having no GND reference of its own, "sees" the ±3.3V-equivalent swing. Same principle as an H-bridge motor driver or a Class-D amp's BTL output stage — no negative supply rail needed either way.
+
+### Two hardware volume tiers, same two pins
+
+`src/buzzer.py`'s `PassiveBuzzer` supports this as `WIRING_MODE = "bridge"` (see its module docstring) with a `set_tier(QUIET | LOUD)` method:
+- **QUIET** — only `BUZZER_BRIDGE_A` carries PWM, `BUZZER_BRIDGE_B` is held a plain digital low. Same ~3.3V swing as the single-pin hookup.
+- **LOUD** — both pins driven in antiphase as above, full ~2x swing.
+
+Stacks with the existing continuous `volume` (duty-cycle) parameter on `tone()`, so you get a real quiet/loud switch *and* fine control within each. `WIRING_MODE` defaults to `"single"` (matching the piezo's actual current wiring to GP22/GND) — switching it to `"bridge"` is a code change that must be paired with actually moving the piezo's leads to GP8/GP9, not a software-only toggle.
 
 ## I2S amp vs. PWM-on-piezo, for actual audio
 
