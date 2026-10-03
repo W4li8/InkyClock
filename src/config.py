@@ -42,6 +42,9 @@ ALARM_LONG_PRESS_S = 3.0        # hold B/C this long to toggle edit mode / show+
 ALARM_EDIT_TIMEOUT_S = 15       # auto-exit MODE_EDIT after this long with no A/B/C activity
 ALARM_RING_FLASH_HZ = 2         # requested border-flash rate; see display.py
                                  # docstring for why e-ink won't quite hit this
+ALARM_RING_TIMEOUT_S = 5 * 60   # auto-stop ringing if never dismissed (alarm.py ring_timed_out())
+ALARM_RING_LOUD_AFTER_S = 3 * 60  # escalate QUIET -> LOUD bridge tier this far into an unanswered
+                                   # ring (alarm.py ring_should_be_loud()); must be < ALARM_RING_TIMEOUT_S
 
 # --- Main loop -------------------------------------------------------------
 # Both are plain time.sleep_ms(), NOT machine.lightsleep() -- confirmed live

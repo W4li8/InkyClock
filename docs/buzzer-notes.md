@@ -119,6 +119,6 @@ You mentioned already having an I2S amp (e.g. MAX98357A-class board) — worth u
 
 **Recommendation:** since you already have the I2S amp, use it as the primary alarm sound (real chime/voice/music, adjustable volume in software) and keep the piezo on GP22 as a cheap, code-simple backup/secondary alarm — e.g. a fallback beeper if the I2S path ever fails to init, or a second "did you turn off the main alarm" nag tone. Both can coexist since they're on entirely separate pins.
 
-## Alarm escalation pattern idea
+## Alarm escalation + auto-stop (implemented)
 
-Since this is going into an alarm clock: start with a quiet single tone, and if no button (A/B/C on GP12/13/14) is pressed within N seconds, increase `vol`, shorten the gaps, or switch to a faster/harsher note pattern. `duty_u16` gives volume control for the ramp; `freq` gives you the harsher-tone escalation without extra hardware.
+The original idea here ("start quiet, escalate if unanswered") is implemented, using the hardware tiers above rather than `duty_u16`: `main.py`'s `MODE_RINGING` loop starts at `QUIET`, switches to `LOUD` (bridged) after `config.ALARM_RING_LOUD_AFTER_S`, and auto-stops the ring entirely after `config.ALARM_RING_TIMEOUT_S` if no button ever dismisses it — `alarm.py`'s `ring_should_be_loud()`/`ring_timed_out()` expose the elapsed-time checks, `buzzer.set_tier()` does the actual hardware switch. Default: 5 minutes total, loud for the last 2. See `alarm.py`'s module docstring for why that split (elapsed-time logic in `alarm.py`, hardware-tier logic in `buzzer.py`, wiring between them in `main.py`) rather than putting it all in one file.

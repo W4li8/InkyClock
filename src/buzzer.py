@@ -181,30 +181,39 @@ class PassiveBuzzer:
         Call repeatedly while ringing (main.py's MODE_RINGING loop calls this
         once per tick) so the tune plays on repeat.
 
-        TODO: real tune -- replace the placeholder body below once the
-        buzzer is wired up. Until BUZZER_CONNECTED is True this only prints
-        once per call, so it never blocks the ring loop's button polling.
+        TODO: real tune -- replace the placeholder body below once you want
+        something beyond a simple chime. Until BUZZER_CONNECTED is True this
+        only prints once per call, so it never blocks the ring loop's button
+        polling.
 
-        TODO: escalation idea (needs WIRING_MODE == "bridge" wired up
-        first) -- track how long MODE_RINGING has been active (e.g. a
-        timestamp passed in, or main.py calling set_tier(LOUD) itself once
-        some threshold passes) and call self.set_tier(LOUD) partway through
-        an unanswered alarm, having started at QUIET. Not implemented here:
-        that's main.py/alarm.py ring-state logic, out of scope for this
-        file, which only exposes the tier capability.
+        Escalation (QUIET -> LOUD partway through an unanswered ring) is
+        implemented, but not in this file -- main.py's MODE_RINGING loop
+        calls self.set_tier() itself based on alarm.ring_should_be_loud()
+        (config.ALARM_RING_LOUD_AFTER_S), and also auto-stops the ring
+        entirely via alarm.ring_timed_out() (config.ALARM_RING_TIMEOUT_S).
+        Kept out of this file deliberately, same reasoning as set_tier()'s
+        own docstring: buzzer.py only exposes the tier capability, it
+        doesn't know about ring-state timing.
 
         NOTE for later: real tone() calls block for their duration, and the
-        ring loop also needs to stay responsive to a dismiss press. Once you
-        have a real multi-note tune, consider breaking it into short notes
-        (<=100ms) so a button check still lands between them, rather than
-        one long blocking sequence -- see todo.txt.
+        ring loop also needs to stay responsive to a dismiss press. Each note
+        below is kept to <=100ms for exactly that reason; keep following
+        that if you replace this with a longer/real tune (see todo.txt) --
+        a dismiss press can only register in the gap between tone() calls,
+        never during one.
         """
         if not BUZZER_CONNECTED:
             print("[buzzer] (not connected) would be sounding the alarm tune now")
             return
-        # TODO: real tune -- placeholder two-tone chime
-        self.tone(784, 150)
-        self.tone(1047, 250)
+        # Still a placeholder, but a gentle ascending major arpeggio
+        # (C5->E5->G5->C6) instead of the original two-note "chirp" (a sharp
+        # jump straight from 784Hz to 1047Hz with nothing in between, and a
+        # long 250ms second note -- confirmed live to read as an abrupt
+        # beep-beep rather than a chime). Four evenly-spaced, evenly-timed
+        # notes read as a smooth rising phrase instead.
+        for freq in (523, 659, 784, 1047):  # C5, E5, G5, C6
+            self.tone(freq, 100)
+            time.sleep_ms(15)
 
     def deinit(self):
         if self._pwm_a is not None:

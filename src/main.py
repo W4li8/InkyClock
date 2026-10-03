@@ -31,6 +31,12 @@ Button behaviour (see alarm.py for the state machine these call into):
 To change what "short" vs "long" press means, see config.ALARM_LONG_PRESS_S
 and poll_button()/ButtonState below.
 
+MODE_RINGING also auto-stops itself if never dismissed
+(config.ALARM_RING_TIMEOUT_S, alarm.ring_timed_out()), escalating the
+buzzer from its QUIET to LOUD hardware tier partway through
+(config.ALARM_RING_LOUD_AFTER_S, alarm.ring_should_be_loud()) -- see the
+MODE_RINGING branch below and alarm.py's module docstring.
+
 Low power: the main-loop tick is a plain time.sleep_ms(), deliberately NOT
 machine.lightsleep() -- confirmed live (isolated, reproducible test) that
 lightsleep() freezes machine.RTC() for its entire duration on this board/
@@ -64,7 +70,7 @@ import config
 import pins
 import wifi
 from display import InkyDisplay
-from buzzer import PassiveBuzzer
+from buzzer import PassiveBuzzer, QUIET, LOUD
 from alarm import Alarm, MODE_CLOCK, MODE_EDIT, MODE_RINGING, MODE_PREVIEW
 
 
@@ -265,13 +271,23 @@ def main():
                     last_preview_state = preview_state
 
         elif alarm.mode == MODE_RINGING:
-            buzzer.play_alarm_tune()
-            now_ms = time.ticks_ms()
-            half_period_ms = int(1000 / config.ALARM_RING_FLASH_HZ / 2)
-            if time.ticks_diff(now_ms, last_border_toggle_ticks) >= half_period_ms:
-                border_visible = not border_visible
-                last_border_toggle_ticks = now_ms
-                display.flash_alarm_border(alarm.hour, alarm.minute, border_visible)
+            if alarm.ring_timed_out():
+                print(f"[main] alarm ring auto-stopped after {config.ALARM_RING_TIMEOUT_S}s, never dismissed")
+                alarm.stop_ringing()
+                buzzer.silence()
+            else:
+                # QUIET for the first ALARM_RING_LOUD_AFTER_S, LOUD (bridged)
+                # for the remainder up to ALARM_RING_TIMEOUT_S -- set_tier()
+                # is a no-op once already in the requested tier, so calling
+                # it every tick costs nothing beyond the one real transition.
+                buzzer.set_tier(LOUD if alarm.ring_should_be_loud() else QUIET)
+                buzzer.play_alarm_tune()
+                now_ms = time.ticks_ms()
+                half_period_ms = int(1000 / config.ALARM_RING_FLASH_HZ / 2)
+                if time.ticks_diff(now_ms, last_border_toggle_ticks) >= half_period_ms:
+                    border_visible = not border_visible
+                    last_border_toggle_ticks = now_ms
+                    display.flash_alarm_border(alarm.hour, alarm.minute, border_visible)
 
         # Non-blocking: only actually touches hardware (and only then
         # blocks, for that single real push) if something was drawn above

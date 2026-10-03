@@ -37,6 +37,10 @@ check("0 <= DEFAULT_ALARM_MINUTE <= 59", 0 <= config.DEFAULT_ALARM_MINUTE <= 59)
 check("ALARM_LONG_PRESS_S > 0", config.ALARM_LONG_PRESS_S > 0)
 check("ALARM_EDIT_TIMEOUT_S > 0", config.ALARM_EDIT_TIMEOUT_S > 0)
 check("ALARM_RING_FLASH_HZ > 0", config.ALARM_RING_FLASH_HZ > 0)
+check("ALARM_RING_TIMEOUT_S > 0", config.ALARM_RING_TIMEOUT_S > 0)
+check("ALARM_RING_LOUD_AFTER_S > 0", config.ALARM_RING_LOUD_AFTER_S > 0)
+check("ALARM_RING_LOUD_AFTER_S < ALARM_RING_TIMEOUT_S (loud tier kicks in before the ring auto-stops)",
+      config.ALARM_RING_LOUD_AFTER_S < config.ALARM_RING_TIMEOUT_S)
 
 check("MAIN_LOOP_TICK_S > 0", config.MAIN_LOOP_TICK_S > 0)
 check("IDLE_TICK_S > 0", config.IDLE_TICK_S > 0)

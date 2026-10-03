@@ -33,6 +33,15 @@ check_ring() is only evaluated in MODE_CLOCK. Rare in practice (a preview is
 at most 3s; editing now can run up to config.ALARM_EDIT_TIMEOUT_S idle, so
 marginally more exposure than before, but still real; see todo.txt.
 
+Ring auto-stop + volume escalation (config.ALARM_RING_TIMEOUT_S,
+ALARM_RING_LOUD_AFTER_S): ring_timed_out() and ring_should_be_loud() are
+polled from main.py's MODE_RINGING loop, same pattern as
+edit_idle_expired()/preview_expired() above. This module only exposes the
+elapsed-time booleans -- it doesn't know about buzzer.py's hardware tiers
+(QUIET/LOUD) at all, deliberately, to keep alarm.py's state machine
+decoupled from buzzer.py's wiring details; main.py is what reads
+ring_should_be_loud() and calls buzzer.set_tier() accordingly.
+
 Flash-persisted settings (hour/minute/enabled), via persist.py: __init__
 restores them if present, falling back to config.DEFAULT_ALARM_HOUR/MINUTE
 and enabled=True on first boot or a missing/corrupt state file. Saved on
@@ -69,6 +78,7 @@ class Alarm:
         self._last_ring_minute_key = None  # (y, mo, d, hh, mm) already rung, avoid re-firing
         self._last_edit_activity_ticks = None
         self._preview_start_ticks = None
+        self._ring_start_ticks = None
 
     def _save(self):
         persist.update({"alarm": {"hour": self.hour, "minute": self.minute, "enabled": self.enabled}})
@@ -175,7 +185,29 @@ class Alarm:
 
     def start_ringing(self):
         self.mode = MODE_RINGING
+        self._ring_start_ticks = time.ticks_ms()
 
     def stop_ringing(self):
-        """Any button press while MODE_RINGING dismisses -- see main.py."""
+        """Any button press while MODE_RINGING dismisses -- see main.py.
+        Also called by main.py itself once ring_timed_out() fires, as an
+        automatic dismiss."""
         self.mode = MODE_CLOCK
+        self._ring_start_ticks = None
+
+    def ring_timed_out(self):
+        """Call every tick while MODE_RINGING. True once
+        config.ALARM_RING_TIMEOUT_S has passed since start_ringing() with no
+        dismiss -- main.py then calls stop_ringing() itself, same as a
+        button-press dismiss, just automatic."""
+        if self._ring_start_ticks is None:
+            return False
+        return time.ticks_diff(time.ticks_ms(), self._ring_start_ticks) >= config.ALARM_RING_TIMEOUT_S * 1000
+
+    def ring_should_be_loud(self):
+        """Call every tick while MODE_RINGING. True once
+        config.ALARM_RING_LOUD_AFTER_S has passed since start_ringing() --
+        main.py uses this to escalate the buzzer's hardware volume tier
+        (QUIET -> LOUD) partway through an unanswered alarm."""
+        if self._ring_start_ticks is None:
+            return False
+        return time.ticks_diff(time.ticks_ms(), self._ring_start_ticks) >= config.ALARM_RING_LOUD_AFTER_S * 1000

@@ -566,3 +566,40 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
     (both QUIET and LOUD bridge tiers) -- still just the two-tone chime
     placeholder, real tune still TODO per buzzer.py.
   - idea.txt's "Persist alarm settings" entry marked DONE.
+
+[2026-10-03 00:29] Ring auto-stop + volume escalation, closing gap #1 from
+  the 2026-09-27 state-machine gap review (MODE_RINGING used to run
+  forever if never dismissed). Per user request: 5 min total, QUIET tier
+  for the first 3 min, LOUD (bridged) for the last 2.
+
+  - config.py: ALARM_RING_TIMEOUT_S (5*60), ALARM_RING_LOUD_AFTER_S (3*60).
+  - alarm.py: start_ringing() now stamps _ring_start_ticks; new
+    ring_timed_out() / ring_should_be_loud() (same elapsed-ticks pattern as
+    edit_idle_expired()/preview_expired()). Deliberately knows nothing about
+    buzzer.py's QUIET/LOUD tiers -- stays a plain elapsed-time boolean, same
+    decoupling reasoning as set_tier()'s own docstring.
+  - main.py: MODE_RINGING branch calls alarm.stop_ringing() + buzzer.silence()
+    once ring_timed_out() fires (same as a manual dismiss, just automatic);
+    otherwise calls buzzer.set_tier(LOUD if ring_should_be_loud() else QUIET)
+    every tick before play_alarm_tune() (set_tier() no-ops once already in
+    the right tier, so this costs nothing beyond the one real transition).
+  - test_config.py / test_alarm.py extended (timing checks via manipulating
+    _ring_start_ticks backward, same technique as the existing idle-timeout
+    tests -- no real 5-minute wait needed). All three (config, alarm, main)
+    ran live -- PASS. Buzzer-level QUIET/LOUD switching itself was already
+    confirmed audible in earlier sessions; this only adds the timing/control
+    layer on top, not new hardware behavior.
+  - docs/buzzer-notes.md's "Alarm escalation pattern idea" section marked
+    implemented; buzzer.py's play_alarm_tune() TODO comment updated to point
+    at main.py/alarm.py instead of describing it as unimplemented.
+
+  Also, per user request ("make it a nicer tone, less chirpy"):
+  play_alarm_tune()'s placeholder changed from a two-note chirp (784Hz
+  150ms straight to 1047Hz 250ms -- a sharp octave+third jump with nothing
+  between) to a 4-note ascending major arpeggio (C5->E5->G5->C6, 100ms
+  each + 15ms gaps). Also brings every individual tone() call under the
+  <=100ms guidance already noted in play_alarm_tune()'s own docstring (the
+  old 250ms note violated it) -- a dismiss press can only register in the
+  gap between tone() calls, so shorter notes = snappier dismissal too, not
+  just a nicer sound. Previewed live (both QUIET and LOUD tiers, and a 10s
+  5s-low/5s-high ramp) -- ran clean, awaiting the user's own ears.

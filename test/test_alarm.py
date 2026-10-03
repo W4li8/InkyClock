@@ -24,7 +24,7 @@ import uos
 
 import config
 import persist
-from alarm import Alarm, MODE_CLOCK, MODE_EDIT, MODE_PREVIEW
+from alarm import Alarm, MODE_CLOCK, MODE_EDIT, MODE_PREVIEW, MODE_RINGING
 
 print("=== test_alarm ===")
 ok = True
@@ -132,6 +132,30 @@ try:
     check("preview_expired() True once ALARM_LONG_PRESS_S has passed", a6.preview_expired() is True)
     a6.end_preview()
     check("end_preview() -> MODE_CLOCK", a6.mode == MODE_CLOCK)
+
+    # -- ring auto-stop + volume escalation -----------------------------
+    assert config.ALARM_RING_LOUD_AFTER_S < config.ALARM_RING_TIMEOUT_S, \
+        "config.ALARM_RING_LOUD_AFTER_S must be less than ALARM_RING_TIMEOUT_S"
+
+    a7r = Alarm()
+    check("ring_timed_out()/ring_should_be_loud() False before any ring has started",
+          a7r.ring_timed_out() is False and a7r.ring_should_be_loud() is False)
+    a7r.start_ringing()
+    check("start_ringing() -> MODE_RINGING", a7r.mode == MODE_RINGING)
+    check("fresh ring: not timed out, still QUIET",
+          a7r.ring_timed_out() is False and a7r.ring_should_be_loud() is False)
+
+    a7r._ring_start_ticks = time.ticks_add(time.ticks_ms(), -int(config.ALARM_RING_LOUD_AFTER_S * 1000) - 100)
+    check("ring_should_be_loud() True once ALARM_RING_LOUD_AFTER_S has passed", a7r.ring_should_be_loud() is True)
+    check("not yet timed out at the loud-escalation point", a7r.ring_timed_out() is False)
+
+    a7r._ring_start_ticks = time.ticks_add(time.ticks_ms(), -int(config.ALARM_RING_TIMEOUT_S * 1000) - 100)
+    check("ring_timed_out() True once ALARM_RING_TIMEOUT_S has passed", a7r.ring_timed_out() is True)
+
+    a7r.stop_ringing()
+    check("stop_ringing() -> MODE_CLOCK", a7r.mode == MODE_CLOCK)
+    check("stop_ringing() resets ring timing (no longer timed out/loud)",
+          a7r.ring_timed_out() is False and a7r.ring_should_be_loud() is False)
 
     # -- flash persistence ---------------------------------------------
     _clear_persisted()
