@@ -451,9 +451,8 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   - buzzer.py: WIRING_MODE ("single"/"bridge") + set_tier(QUIET|LOUD) for
     "bridge" mode -- see commit for full detail. Still "single" (matches
     actual current wiring); switching needs a physical rewire too.
-  - pins.py: BUZZER_BRIDGE_A/B moved GP2/GP3 -> GP8/GP9 (user's choice,
-    confirmed equally valid: same-slice pair, free, GND-adjacent, no
-    conflicts -- just a different physical header location). FREE_PINS
+  - pins.py: BUZZER_BRIDGE_A/B assigned to GP8/GP9 (user's choice, confirmed
+    valid: same-slice pair, free, GND-adjacent, no conflicts). FREE_PINS
     updated to match.
   - Verified test_pins.py's collision logic by hand (not live yet): no
     duplicates, no wireless-pin overlap, FREE_PINS consistent. Needs an
@@ -531,3 +530,39 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   power); an RTC would only improve on a 10-min target already met.
   idea.txt's RTC/UPS bullets replaced with a pointer to the decision doc;
   docs/README.md indexed.
+
+[2026-10-03 00:12] Alarm settings now flash-persistent, closing gap #2 from
+  the 2026-09-27 state-machine gap review. Default stays 7:00/enabled, UI
+  unchanged -- long-press B edit / A+C digit adjust / long-press C toggle
+  all work exactly as before, persistence is invisible until a crash or
+  power-loss.
+
+  - persist.py: added update() (read-merge-write) alongside the existing
+    save() (full overwrite) -- needed because alarm settings and wifi.py's
+    time checkpoint now share one state.json; two save()s would've
+    clobbered each other's key. wifi.py's _checkpoint() switched to
+    update() too so it coexists safely.
+  - alarm.py: Alarm.__init__ restores hour/minute/enabled from
+    persist.load()["alarm"], falling back to config.DEFAULT_ALARM_HOUR/
+    MINUTE + enabled=True if missing, corrupt, or wrong-shaped (guards
+    against a non-dict "alarm" entry specifically, confirmed via test).
+    exit_edit() and toggle_enabled() each call a new _save() -- persists
+    once per edit session (on exit, not per digit nudge) and once per
+    enable/disable toggle, matching the exact write points idea.txt
+    originally sketched for this.
+  - test/test_persist.py: added update() merge-behavior coverage.
+  - test/test_alarm.py: added a full persistence section (restore-on-init,
+    save-on-exit_edit, save-on-toggle_enabled, cross-instance restore,
+    datetime-key isolation, corrupt-entry fallback) -- had to also backup/
+    restore state.json (like test_persist.py already does) and clear it
+    between existing test instances, since exit_edit()/toggle_enabled()
+    now write to flash and earlier instances' saves were leaking into
+    later ones' "starts at config default" assumptions.
+  - All three test suites (test_persist, test_alarm, test_wifi) run live
+    against the board -- all PASS, including test_wifi's existing
+    checkpoint/restore round-trip (confirms persist.update() didn't break
+    the unrelated time-checkpoint feature).
+  - Also played the current placeholder play_alarm_tune() live on request
+    (both QUIET and LOUD bridge tiers) -- still just the two-tone chime
+    placeholder, real tune still TODO per buzzer.py.
+  - idea.txt's "Persist alarm settings" entry marked DONE.

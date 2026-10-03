@@ -32,11 +32,21 @@ to be mid-edit (MODE_EDIT) or mid-preview (MODE_PREVIEW), it won't fire --
 check_ring() is only evaluated in MODE_CLOCK. Rare in practice (a preview is
 at most 3s; editing now can run up to config.ALARM_EDIT_TIMEOUT_S idle, so
 marginally more exposure than before, but still real; see todo.txt.
+
+Flash-persisted settings (hour/minute/enabled), via persist.py: __init__
+restores them if present, falling back to config.DEFAULT_ALARM_HOUR/MINUTE
+and enabled=True on first boot or a missing/corrupt state file. Saved on
+actual change only -- exit_edit() (hour/minute, whatever adjust_digit() set
+while editing) and toggle_enabled() (enabled) -- not on every digit nudge,
+so flash only gets written once per edit session, not once per button
+press. Uses persist.update(), not persist.save(), so this doesn't clobber
+wifi.py's time checkpoint living in the same state.json (see persist.py).
 """
 
 import time
 
 import config
+import persist
 
 MODE_CLOCK = "clock"
 MODE_EDIT = "edit"
@@ -46,14 +56,23 @@ MODE_PREVIEW = "preview"
 
 class Alarm:
     def __init__(self):
-        self.hour = config.DEFAULT_ALARM_HOUR
-        self.minute = config.DEFAULT_ALARM_MINUTE
-        self.enabled = True
+        saved = persist.load().get("alarm", {})
+        if not isinstance(saved, dict):
+            saved = {}  # wrong-shape/corrupt entry -- fall back to defaults, don't raise
+        self.hour = saved.get("hour", config.DEFAULT_ALARM_HOUR)
+        self.minute = saved.get("minute", config.DEFAULT_ALARM_MINUTE)
+        self.enabled = saved.get("enabled", True)
+        if saved:
+            print(f"[alarm] restored from flash: {self.hour:02}:{self.minute:02} enabled={self.enabled}")
         self.mode = MODE_CLOCK
         self.digit_index = 0  # 0=hour tens, 1=hour ones, 2=minute tens, 3=minute ones
         self._last_ring_minute_key = None  # (y, mo, d, hh, mm) already rung, avoid re-firing
         self._last_edit_activity_ticks = None
         self._preview_start_ticks = None
+
+    def _save(self):
+        persist.update({"alarm": {"hour": self.hour, "minute": self.minute, "enabled": self.enabled}})
+        print(f"[alarm] saved to flash: {self.hour:02}:{self.minute:02} enabled={self.enabled}")
 
     # -- entering / leaving edit mode -------------------------------------
     def enter_edit(self):
@@ -64,9 +83,12 @@ class Alarm:
 
     def exit_edit(self):
         """Long-press B again while MODE_EDIT (toggle), or edit_idle_expired()
-        timing out -- either way just returns to the clock view. No separate
-        "save" step needed: adjust_digit() already mutated hour/minute live."""
+        timing out -- either way just returns to the clock view.
+        adjust_digit() already mutated hour/minute live; this is just where
+        the resulting value gets persisted to flash (once per edit session,
+        not once per digit nudge)."""
         self.mode = MODE_CLOCK
+        self._save()
 
     def edit_idle_expired(self):
         """Call every tick while MODE_EDIT. True once
@@ -86,6 +108,7 @@ class Alarm:
         the same window start_preview() is already timing the display for.
         Doesn't touch hour/minute/mode -- just whether check_ring() can fire."""
         self.enabled = not self.enabled
+        self._save()
 
     # -- press-C preview ------------------------------------------------
     def start_preview(self):

@@ -12,6 +12,12 @@ fallback, not a replacement for that.
 
 A missing or corrupt file is treated as "no saved state" (returns {}),
 since that's the ordinary first-boot case, not an error worth surfacing.
+
+One file, multiple unrelated callers (wifi.py's time checkpoint, alarm.py's
+settings): save() REPLACES the whole file, so two callers each doing
+save({"their_key": ...}) would clobber each other's key. Use update()
+instead whenever you're not deliberately rewriting the entire state --
+it's a read-merge-write so each caller's key survives independently.
 """
 import ujson
 
@@ -29,9 +35,19 @@ def load():
 
 
 def save(state):
-    """Overwrite the saved state file with `state` (a plain dict)."""
+    """Overwrite the saved state file with `state` (a plain dict). Prefer
+    update() unless you actually mean to discard every other key."""
     try:
         with open(STATE_FILE, "w") as f:
             ujson.dump(state, f)
     except OSError as exc:
         print("[persist] failed to save state:", exc)
+
+
+def update(partial):
+    """Merge `partial`'s top-level keys into the existing saved state and
+    write it back -- read-modify-write, so unrelated keys (e.g. alarm
+    settings vs. the time checkpoint) don't clobber each other."""
+    state = load()
+    state.update(partial)
+    save(state)

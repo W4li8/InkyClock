@@ -202,7 +202,7 @@ class TimeSync:
 
     def _checkpoint(self):
         y, mo, d, wd, hh, mm, ss, _sub = self.rtc.datetime()
-        persist.save({"datetime": [y, mo, d, wd, hh, mm, ss]})
+        persist.update({"datetime": [y, mo, d, wd, hh, mm, ss]})
         self._last_checkpoint_ticks = time.ticks_ms()
 
     def maybe_checkpoint(self):

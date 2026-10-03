@@ -71,15 +71,14 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   enabled flag (long-press C) -- this would extend that to a per-weekday
   mask instead of a single on/off.
 
-- Persist alarm settings (hour/minute/enabled) across reboot/power-loss --
-  STILL OPEN, don't confuse with the time-checkpointing below (that one's
-  done). No extra hardware needed -- src/persist.py already exists (built
-  for the time checkpoint) and could hold this too, same pattern: write a
-  small state file on actual change (exit_edit, toggle_enabled), read it
-  back at boot with a fallback to config defaults if missing/corrupt. See
-  todo.txt's state-machine gap review, gap #2 (currently a crash/power-
-  cycle silently resets the alarm to config.DEFAULT_ALARM_HOUR/MINUTE with
-  no indication).
+- [DONE, see todo.txt] Persist alarm settings (hour/minute/enabled) across
+  reboot/power-loss -- implemented exactly as sketched here: alarm.py's
+  Alarm.__init__ restores from persist.load()["alarm"] (falling back to
+  config.DEFAULT_ALARM_HOUR/MINUTE + enabled=True if missing/corrupt),
+  exit_edit()/toggle_enabled() save on actual change via the new
+  persist.update() (a read-merge-write, so this doesn't clobber the
+  unrelated time-checkpoint key living in the same state.json). Closes
+  todo.txt's state-machine gap review, gap #2.
 
 - [DONE, see todo.txt] Flash-persisted time checkpoint so a reboot with
   Wi-Fi/the router also down doesn't miss the alarm outright -- implemented

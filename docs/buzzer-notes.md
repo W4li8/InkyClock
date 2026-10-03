@@ -66,7 +66,7 @@ The RP2350 (and RP2040) PWM hardware is organized as slices, each with two chann
 
 That's exactly what a bridge-tied (BTL) buzzer drive wants: put the piezo across two same-slice pins, set one channel's output inverted relative to the other, and the piezo sees roughly double the peak-to-peak voltage swing of a single pin (~+6 dB), for free, with only one extra jumper wire.
 
-**Which GPIOs share a slice:** `slice = (gpio >> 1) & 7`, `channel = gpio & 1` (even = A, odd = B) — so consecutive pin pairs `(0,1)`, `(2,3)`, `(4,5)`, `(6,7)`, `(8,9)`, … are always slice-mates. **GP8 (slice 4, channel A) + GP9 (slice 4, channel B)** is this project's pick: both free, physically adjacent (header pins 11 & 12), a GND sits right after them at pin 13, and neither collides with the default UART0 console on GP0/GP1. (GP2/GP3, slice 1, would work exactly the same way — any same-slice pair does — GP8/GP9 was just the one chosen here.) These are `BUZZER_BRIDGE_A`/`BUZZER_BRIDGE_B` in [`src/pins.py`](../src/pins.py).
+**Which GPIOs share a slice:** `slice = (gpio >> 1) & 7`, `channel = gpio & 1` (even = A, odd = B) — so consecutive pin pairs `(0,1)`, `(2,3)`, `(4,5)`, `(6,7)`, `(8,9)`, … are always slice-mates. **GP8 (slice 4, channel A) + GP9 (slice 4, channel B)** is this project's pick: both free, physically adjacent (header pins 11 & 12), a GND sits right after them at pin 13, and neither collides with the default UART0 console on GP0/GP1. These are `BUZZER_BRIDGE_A`/`BUZZER_BRIDGE_B` in [`src/pins.py`](../src/pins.py).
 
 ```python
 from machine import Pin, PWM

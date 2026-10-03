@@ -44,6 +44,14 @@ try:
     persist.save(sample)
     check("save()/load() round-trips", persist.load() == sample)
 
+    persist.update({"alarm": {"hour": 7, "minute": 0, "enabled": True}})
+    check("update() adds a new key without touching existing ones",
+          persist.load() == {"datetime": sample["datetime"], "alarm": {"hour": 7, "minute": 0, "enabled": True}})
+
+    persist.update({"datetime": [2026, 9, 27, 6, 13, 0, 0]})
+    check("update() overwrites only the key it's given, leaving others (e.g. alarm) alone",
+          persist.load() == {"datetime": [2026, 9, 27, 6, 13, 0, 0], "alarm": {"hour": 7, "minute": 0, "enabled": True}})
+
     with open(persist.STATE_FILE, "w") as f:
         f.write("{not valid json")
     check("load() with a corrupt file returns {} (doesn't raise)", persist.load() == {})
