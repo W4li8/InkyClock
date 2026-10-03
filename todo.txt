@@ -437,3 +437,28 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
     with this session's whole "dumb/self-contained, resilient to infra
     being down" design direction (Wi-Fi-off-between-syncs, the flash
     checkpoint, boot-sync-first flow) for whoever picks this up later.
+
+[2026-10-02 22:52] Buzzer volume tiers + bridge pin swap to GP8/GP9 --
+  committed but NOT YET DEPLOYED/TESTED LIVE, board has been off USB since
+  before this change started (last confirmed connected 2026-09-27; the
+  multi-day serial_logger.py run that was going the whole time showed 114
+  clean consecutive once-per-minute redraws with zero unexplained crashes
+  before the connection dropped -- strong real-world confirmation the
+  lightsleep fix holds up, logged for the record).
+
+  - buzzer.py: WIRING_MODE ("single"/"bridge") + set_tier(QUIET|LOUD) for
+    "bridge" mode -- see commit for full detail. Still "single" (matches
+    actual current wiring); switching needs a physical rewire too.
+  - pins.py: BUZZER_BRIDGE_A/B moved GP2/GP3 -> GP8/GP9 (user's choice,
+    confirmed equally valid: same-slice pair, free, GND-adjacent, no
+    conflicts -- just a different physical header location). FREE_PINS
+    updated to match.
+  - Verified test_pins.py's collision logic by hand (not live yet): no
+    duplicates, no wireless-pin overlap, FREE_PINS consistent. Needs an
+    actual mpremote run once the board's back to confirm for real.
+
+  TODO next time the board is connected: deploy src/pins.py + src/buzzer.py,
+  run test_pins.py + test_buzzer.py live, confirm set_tier() no-ops cleanly
+  in current "single" wiring, then (once/if the piezo is physically moved
+  to GP8/GP9) flip WIRING_MODE to "bridge" and re-test the QUIET/LOUD tiers
+  for real.
