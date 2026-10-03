@@ -603,3 +603,25 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   gap between tone() calls, so shorter notes = snappier dismissal too, not
   just a nicer sound. Previewed live (both QUIET and LOUD tiers, and a 10s
   5s-low/5s-high ramp) -- ran clean, awaiting the user's own ears.
+
+[2026-10-03 00:32] Replaced the invented placeholder tune with a real,
+  known one, per explicit user feedback that the 4-note arpeggio "didn't
+  get rid of the chirp, the noise was just less frequent" -- diagnosed
+  correctly: short, evenly-timed square-wave notes on a bare piezo read as
+  a beep regardless of pitch/ordering, so rearranging notes was never going
+  to fix it. Looked up actual known alarm/clock tones (web search:
+  Westminster Quarters note sequence, classic Arduino alarm-beep patterns)
+  rather than inventing another original sequence.
+
+  play_alarm_tune() now plays the opening phrase of the Westminster
+  Quarters (the Big Ben/grandfather-clock chime, probably the most
+  universally recognized "clock sound" there is) -- G#4/F#4/E4/B3
+  (415/370/330/247 Hz), "three crotchets and a minim" rhythm (350ms x3 then
+  700ms), source: https://en.wikipedia.org/wiki/Westminster_Quarters.
+  Two changes from the arpeggio attempt, both deliberate: (1) much longer
+  notes (up to 700ms vs 100ms) -- confirmed short notes were the actual
+  problem, not pitch choice; documented the resulting worst-case dismiss-
+  latency tradeoff (~700ms vs ~100ms) in play_alarm_tune()'s docstring.
+  (2) volume=1.0 instead of the previous default 0.3 -- a thin/quiet square
+  wave reads as tinnier/more chirp-like on a bare piezo than a full-volume
+  one. Previewed live, both QUIET and LOUD tiers, ran clean.

@@ -195,25 +195,37 @@ class PassiveBuzzer:
         own docstring: buzzer.py only exposes the tier capability, it
         doesn't know about ring-state timing.
 
-        NOTE for later: real tone() calls block for their duration, and the
-        ring loop also needs to stay responsive to a dismiss press. Each note
-        below is kept to <=100ms for exactly that reason; keep following
-        that if you replace this with a longer/real tune (see todo.txt) --
-        a dismiss press can only register in the gap between tone() calls,
-        never during one.
+        NOTE on responsiveness: real tone() calls block for their duration,
+        and the ring loop also needs to stay responsive to a dismiss press
+        -- a press can only register in the gap between tone() calls, never
+        during one. The notes below run up to 700ms (the "minim"), longer
+        than the earlier placeholder's -- a deliberate trade for fidelity to
+        a real, recognizable melody (see below) instead of an arbitrary
+        made-up sequence; confirmed an earlier all-<=100ms arpeggio attempt
+        was judged "still chirpy, just less frequent" -- short, evenly-timed
+        square-wave notes read as beeps no matter how they're pitched, so
+        shortening notes further wasn't the actual fix. Worst case, a press
+        now waits ~700ms to register instead of ~100ms; acceptable for a
+        dismiss button, not for anything timing-critical.
         """
         if not BUZZER_CONNECTED:
             print("[buzzer] (not connected) would be sounding the alarm tune now")
             return
-        # Still a placeholder, but a gentle ascending major arpeggio
-        # (C5->E5->G5->C6) instead of the original two-note "chirp" (a sharp
-        # jump straight from 784Hz to 1047Hz with nothing in between, and a
-        # long 250ms second note -- confirmed live to read as an abrupt
-        # beep-beep rather than a chime). Four evenly-spaced, evenly-timed
-        # notes read as a smooth rising phrase instead.
-        for freq in (523, 659, 784, 1047):  # C5, E5, G5, C6
-            self.tone(freq, 100)
-            time.sleep_ms(15)
+        # Still a placeholder (see TODO above), but now the actual opening
+        # phrase of the Westminster Quarters -- the Big Ben / grandfather-
+        # clock chime, probably the most widely recognized "clock sound" in
+        # existence, rather than an arbitrary original sequence. Source:
+        # https://en.wikipedia.org/wiki/Westminster_Quarters -- notes
+        # G#4, F#4, E4, B3, rhythm "three crotchets and a minim" (the last
+        # note held roughly twice as long as the first three). Played at
+        # volume=1.0 (gapless/continuous in both tone() implementations,
+        # see their docstrings) rather than the default 0.3 -- a thin, quiet
+        # square wave reads as tinnier/chirpier on a bare piezo than a full
+        # loud one does.
+        WESTMINSTER_FIRST_QUARTER = ((415, 350), (370, 350), (330, 350), (247, 700))  # (freq, ms)
+        for freq, ms in WESTMINSTER_FIRST_QUARTER:
+            self.tone(freq, ms, volume=1.0)
+            time.sleep_ms(40)
 
     def deinit(self):
         if self._pwm_a is not None:
