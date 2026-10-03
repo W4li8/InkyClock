@@ -135,3 +135,31 @@ InkyClock - future ideas / nice-to-haves (not scheduled, just parking lot)
   wifi.py already does for time sync), and local buffering for the (fairly
   likely) case the server or Wi-Fi is unreachable right when the alarm gets
   dismissed.
+
+- [EVALUATED, NOT PURSUED -- see docs/eink-refresh-power.md] Presence
+  sensor (PIR or mmWave) to skip display refreshes when no one's around to
+  read them. Dropped for power reasons -- the display's own refresh energy
+  is already tiny (~20-70 mWh/day at the current once-a-minute rate, ~19
+  years from its ~10M-cycle rated life regardless), and this device runs
+  on continuous mains/USB power with no battery to extend, so even a
+  "free" sensor wouldn't save anything that matters. Worse, a standard
+  mmWave module (HLK-LD2410, ~80mA continuous) would itself burn
+  ~100-480x the display's entire power budget -- a massive net loss, not a
+  saving. A basic PIR (e.g. AM312, ~8uA) or the LD2410's low-power "S"
+  variant (~100uA) would each individually cost less than the display's
+  own budget, so the math isn't uniformly bad -- it's just solving a
+  problem (tens of mWh/day on a wall-powered device) that doesn't exist.
+  If ever revisited, it'd be for a different reason entirely (reducing
+  visible refresh flicker in a dark room), and a PIR would be the wrong
+  sensor for it regardless -- it only detects motion, not static presence,
+  so it fails exactly the "someone's lying still in bed looking at the
+  clock" case this idea was meant to handle. mmWave's micro-Doppler
+  (detects breathing, not just movement) is the part that actually solves
+  that. On power alone the right pick would be the LD2410S (~100uA), never
+  the standard LD2410 (~80mA). Also considered: Waveshare's HMMD sensor
+  (S3KM1110-based, 24GHz FMCW, ~50mA avg) -- right detection model AND
+  native 3.3V (wires straight to the Pico, no level-shifter, unlike the
+  LD2410 family's usual 5V supply need), but still costs ~57-198x the
+  display's entire power budget, so same "doesn't save power, just happens
+  not to matter on mains power" framing as the standard LD2410 -- not the
+  power-efficient option, just the easiest to wire up if pursued anyway.

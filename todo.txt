@@ -625,3 +625,26 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   (2) volume=1.0 instead of the previous default 0.3 -- a thin/quiet square
   wave reads as tinnier/more chirp-like on a bare piezo than a full-volume
   one. Previewed live, both QUIET and LOUD tiers, ran clean.
+
+[2026-10-03 00:45] Researched + documented e-ink refresh energy/cycle life
+  and evaluated a PIR/mmWave presence sensor idea, per user question.
+
+  New docs/eink-refresh-power.md: UC8151D refresh power (~26.4mW,
+  ~2s full/~0.3s partial, standby <0.01uA) -> ~20-70 mWh/day at this
+  project's actual once-a-minute refresh rate; ~10M-cycle industry-typical
+  e-paper rating -> ~19 years headroom at that rate, not a real
+  constraint. Presence-sensor cost/benefit table (AM312, HC-SR501,
+  HLK-LD2410, HLK-LD2410S) against that ~20-70 mWh/day budget -- standard
+  LD2410 (~80mA continuous) would burn ~100-480x the display's entire
+  budget, a clear net loss; a basic PIR or the LD2410S low-power variant
+  would each cost less than the display's own budget, but the display is
+  already mains/USB-powered with no battery to extend, so even a "free"
+  sensor wouldn't save anything that matters in absolute terms.
+  Conclusion: skip it for power reasons. Separately noted PIR is the wrong
+  sensor type regardless if ever revisited for a non-power (flicker/
+  distraction) reason -- it detects motion, not static presence, which
+  fails the "someone's lying still reading the clock" case; mmWave's
+  micro-Doppler (detects breathing) is what actually solves that, LD2410S
+  specifically.
+  idea.txt's presence-sensor idea added as EVALUATED, NOT PURSUED, pointing
+  at the new doc. docs/low-power.md cross-linked.
