@@ -97,7 +97,17 @@ Wire the piezo across GP8 and GP9 directly (no GND connection needed for the pie
 - **QUIET** — only `BUZZER_BRIDGE_A` carries PWM, `BUZZER_BRIDGE_B` is held a plain digital low. Same ~3.3V swing as the single-pin hookup.
 - **LOUD** — both pins driven in antiphase as above, full ~2x swing.
 
-Stacks with the existing continuous `volume` (duty-cycle) parameter on `tone()`, so you get a real quiet/loud switch *and* fine control within each. `WIRING_MODE` defaults to `"single"` (matching the piezo's actual current wiring to GP22/GND) — switching it to `"bridge"` is a code change that must be paired with actually moving the piezo's leads to GP8/GP9, not a software-only toggle.
+Confirmed live (the piezo's actually soldered to GP8/GP9 as of 2026-10-02, `WIRING_MODE = "bridge"` is the current default): the QUIET/LOUD jump is clearly audible. `tone()`'s continuous `volume` parameter is a separate axis — see below for why it needed its own fix.
+
+### `volume` within a tier: why plain duty cycle barely works, and the gated fix
+
+The first version of `tone()` mapped `volume` straight to `duty_u16()`. Confirmed live: **barely audible as a loudness change.** The reason is physical, not a bug: a bare piezo responds to the *edges* of the square wave (each transition is the same full voltage swing, piezo or not), so changing duty cycle mostly reshapes the waveform's harmonic content, not how loud it sounds — unlike a real speaker behind a low-pass filter, where duty cycle genuinely approximates average power.
+
+`src/buzzer.py` now has two `tone()` implementations, selected by the `CLASSIC_VOLUME` macro-style flag:
+- **`CLASSIC_VOLUME = True`** → `_tone_classic()`, the original straight-duty-cycle behavior. Simple, but a weak volume ramp, as above.
+- **`CLASSIC_VOLUME = False`** (current default) → `_tone_advanced()`: real amplitude modulation by *gating* the tone on/off in `GATE_WINDOW_MS`-sized bursts (default 20ms), held at a fixed "loudest" 50% duty whenever it's on, silenced for the rest of each window in proportion to `1 - volume`. Less total acoustic energy at low `volume` is what actually sounds quieter on a piezo. Confirmed live: produces a real, audible ramp in both tiers. Trade-off: low volumes sound like a fast, buzzy pulse train rather than a smooth quiet tone — an inherent trait of gating a piezo this way (the gate rate is in the low-hundreds-of-Hz range, not far enough above the tone's own frequency to disappear into a smooth envelope), not something worth chasing out further for an alarm clock.
+
+`WIRING_MODE` and `CLASSIC_VOLUME` are independent switches — any combination works; `"bridge"` + gated (`CLASSIC_VOLUME = False`) is what's actually deployed.
 
 ## I2S amp vs. PWM-on-piezo, for actual audio
 

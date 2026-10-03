@@ -487,3 +487,29 @@ src/*.py on-device, secrets.py corrected locally, board running unattended.
   no errors, tier switch engaged correctly mid-test. Audible confirmation
   was pending when the user found a missing solder joint and paused to
   re-solder -- re-test once they're back.
+
+[2026-10-02 23:23] Real volume ramp confirmed by ear + classic-vs-advanced
+  A/B comparison, as requested.
+
+  - User confirmed the QUIET/LOUD tier jump is clearly audible but the
+    within-tier `volume` ramp was barely perceptible with the original
+    straight-duty-cycle tone() -- matches the physics explanation (a bare
+    piezo responds to the square wave's edges, same full swing regardless
+    of duty cycle; sweeping duty mostly reshapes timbre, not loudness).
+  - buzzer.py: added CLASSIC_VOLUME macro-style flag. tone() now dispatches
+    to _tone_classic() (original straight duty-cycle) or _tone_advanced()
+    (new default, False): real amplitude modulation via on/off gating in
+    GATE_WINDOW_MS (20ms) bursts, fixed 50% "loudest" duty while on,
+    volume controls the on-fraction of each window -- genuinely less
+    acoustic energy at low volume, which is what actually sounds quieter
+    on a piezo. Documented the expected tradeoff (mild tremolo/buzz
+    character at low volume from the ~hundreds-of-Hz gate rate) rather
+    than treating it as a bug.
+  - Ran a direct A/B: _tone_advanced() ramp (both tiers) confirmed
+    "very good" by the user, then re-ran the exact same ramp with
+    buzzer.CLASSIC_VOLUME = True (temporary runtime override via the REPL,
+    no redeploy needed -- confirmed the deployed file's real default,
+    False, is untouched) for a same-session comparison against the
+    original weak-ramp behavior.
+  - docs/buzzer-notes.md updated with the full explanation and the new
+    CLASSIC_VOLUME/_tone_advanced() section.
